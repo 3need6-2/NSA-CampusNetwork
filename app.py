@@ -88,6 +88,7 @@ def dashboard():
     user_ranking = analyzer.get_user_traffic_ranking(top_n=10)
     app_category = analyzer.get_app_category_traffic()
     active_hours = analyzer.get_active_hours()
+    attack_map = get_attack_map_stats()
     
     return render_template('dashboard.html',
                           charts_html=charts_html,
@@ -95,7 +96,43 @@ def dashboard():
                           user_ranking=user_ranking,
                           app_category=app_category,
                           active_hours=active_hours,
-                          ai_security=ai_security_report)
+                          ai_security=ai_security_report,
+                          attack_map=attack_map)
+
+
+def get_attack_map_stats():
+    """生成攻击源追踪面板的摘要指标"""
+    if not analyzer or analyzer.df is None or len(analyzer.df) == 0:
+        return {
+            'sources': 0,
+            'top_target': '暂无',
+            'blocked': 0
+        }
+
+    df = analyzer.df
+    sources = df['src_ip'].nunique() if 'src_ip' in df.columns else 0
+    blocked = len(ai_security_report.get('blocked_entities', [])) if ai_security_report else 0
+    top_target = '暂无'
+
+    if 'dst_port' in df.columns and len(df['dst_port']) > 0:
+        top_port = int(df['dst_port'].mode().iloc[0])
+        service_names = {
+            22: 'SSH',
+            53: 'DNS',
+            80: 'HTTP',
+            443: 'HTTPS',
+            3306: 'MySQL',
+            3389: 'RDP',
+            6379: 'Redis',
+        }
+        service = service_names.get(top_port, 'TCP/UDP')
+        top_target = f"Port {top_port} ({service})"
+
+    return {
+        'sources': int(sources),
+        'top_target': top_target,
+        'blocked': blocked
+    }
 
 
 @app.route('/upload', methods=['POST'])
