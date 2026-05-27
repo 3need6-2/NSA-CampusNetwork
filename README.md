@@ -9,6 +9,9 @@
 用户应用类别分析：统计每个用户使用的应用类别占比
 活跃时段分析：按小时统计用户活跃度和流量变化
 用户画像分析：识别用户行为特征、生成标签体系
+AI 安全审查：使用本地规则和 DeepSeek 复核流量风险
+智能拦截建议：针对扫描、敏感服务访问、异常流量给出限速、二次认证或临时隔离建议
+防 AI 辅助攻击：检测提示词注入、AI 代理痕迹和 Web 攻击载荷
 可视化展示：使用 Plotly 和 Chart.js 生成交互式图表
 
 📊 可视化图表：
@@ -127,7 +130,7 @@ timestamp,src_ip,dst_ip,src_port,dst_port,protocol,bytes,app_category,user
 2025-12-01 08:01:05,192.168.1.102,13.226.123.45,52789,80,TCP,2048,Video Streaming,student_003
 ```
 
- API 接口
+API 接口
 
  GET /api/stats
 
@@ -161,6 +164,38 @@ curl http://localhost:5001/api/stats
 }
 ```
 
+ GET /api/ai_security
+
+返回本地 AI 安全审查报告，包含风险等级、告警、拦截建议和防 AI 辅助攻击策略。
+
+```bash
+curl http://localhost:5001/api/ai_security
+```
+
+ POST /api/ai_security/deepseek
+
+调用 DeepSeek 对本地安全审查结果进行防守性复核。该接口只发送汇总风险和少量证据，不发送完整原始流量。
+
+```bash
+export DEEPSEEK_API_KEY="你的 DeepSeek API Key"
+curl -X POST http://localhost:5001/api/ai_security/deepseek
+```
+
+可选环境变量：
+
+```bash
+export DEEPSEEK_BASE_URL="https://api.deepseek.com"
+export DEEPSEEK_MODEL="deepseek-chat"
+export DEEPSEEK_TIMEOUT="20"
+```
+
+防 AI 辅助攻击说明：
+
+- 不按 Claude、GPT 等模型名称做单点判断，避免误伤正常用户
+- 按行为模式、请求文本、载荷特征和访问频率识别 AI 代理滥用
+- 命中高风险时给出 `rate_limit`、`step_up_auth` 或 `quarantine` 建议
+- 模块只用于防守审查，不提供攻击实现或绕过方法
+
 ## 路由说明
 
 | 路由 | 方法 | 说明 |
@@ -169,6 +204,8 @@ curl http://localhost:5001/api/stats
 | `/dashboard` | GET | 仪表板 - 展示所有分析图表 |
 | `/upload` | POST | 处理文件上传 - 上传后自动刷新分析 |
 | `/api/stats` | GET | API 接口 - 返回 JSON 格式数据 |
+| `/api/ai_security` | GET | API 接口 - 返回本地 AI 安全审查和智能拦截建议 |
+| `/api/ai_security/deepseek` | POST | API 接口 - 调用 DeepSeek 进行防守性复核 |
 
  数据分析模块说明
 
@@ -427,7 +464,7 @@ Dashboard 页面新增以下功能：
 返回流量统计数据
 
 ```bash
-curl http://localhost:5000/api/stats
+curl http://localhost:5001/api/stats
 ```
 
  GET /api/user_profiles
@@ -435,7 +472,7 @@ curl http://localhost:5000/api/stats
 返回用户画像数据（JSON 格式）
 
 ```bash
-curl http://localhost:5000/api/user_profiles
+curl http://localhost:5001/api/user_profiles
 ```
 
  性能优化建议
@@ -456,7 +493,6 @@ curl http://localhost:5000/api/user_profiles
 ---
 
 **最后更新**：2025 年 12 月 1 日
-
 
 
 

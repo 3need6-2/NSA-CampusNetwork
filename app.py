@@ -5,6 +5,7 @@ import os
 import json
 from utils.analysis import TrafficAnalyzer, generate_all_charts
 from utils.user_profile import UserProfileAnalyzer
+from utils.ai_security import AISecurityAnalyzer
 
 app = Flask(__name__)
 
@@ -24,6 +25,7 @@ analyzer = None
 user_profile_analyzer = None
 charts_html = {}
 user_profiles = {}
+ai_security_report = {}
 
 
 def allowed_file(filename):
@@ -33,7 +35,7 @@ def allowed_file(filename):
 
 def load_analyzer(csv_file=None):
     """加载分析器，并生成所有图表和用户画像"""
-    global analyzer, user_profile_analyzer, charts_html, user_profiles
+    global analyzer, user_profile_analyzer, charts_html, user_profiles, ai_security_report
     
     if csv_file is None:
         # 尝试加载默认的 traffic.csv
@@ -56,6 +58,9 @@ def load_analyzer(csv_file=None):
         # 保存用户画像到 JSON
         profiles_path = UPLOAD_FOLDER / 'user_profiles.json'
         user_profile_analyzer.save_profiles(str(profiles_path))
+
+        # 生成本地 AI 安全审查报告。DeepSeek 复核由接口按需触发，避免启动时阻塞。
+        ai_security_report = AISecurityAnalyzer(analyzer.df).generate_report(include_deepseek=False)
         
         return True
     except Exception as e:
@@ -89,7 +94,8 @@ def dashboard():
                           total_traffic=total_traffic,
                           user_ranking=user_ranking,
                           app_category=app_category,
-                          active_hours=active_hours)
+                          active_hours=active_hours,
+                          ai_security=ai_security_report)
 
 
 @app.route('/upload', methods=['POST'])
@@ -150,6 +156,34 @@ def api_user_profiles():
                 print(f"加载用户画像失败: {e}")
     
     return jsonify(user_profiles)
+
+
+@app.route('/api/ai_security')
+def api_ai_security():
+    """API 接口 - 返回 AI 安全审查和智能拦截建议"""
+    if not analyzer:
+        return jsonify({})
+
+    global ai_security_report
+    if not ai_security_report:
+        ai_security_report = AISecurityAnalyzer(analyzer.df).generate_report(include_deepseek=False)
+
+    return jsonify(ai_security_report)
+
+
+@app.route('/api/ai_security/deepseek', methods=['POST'])
+def api_ai_security_deepseek():
+    """API 接口 - 使用 DeepSeek 对本地安全审查结果进行复核"""
+    if not analyzer:
+        return jsonify({})
+
+    global ai_security_report
+    local_report = AISecurityAnalyzer(analyzer.df).generate_report(include_deepseek=False)
+    deepseek_report = AISecurityAnalyzer(analyzer.df).generate_report(include_deepseek=True)
+    local_report['deepseek_review'] = deepseek_report.get('deepseek_review', {})
+    ai_security_report = local_report
+
+    return jsonify(ai_security_report)
 
 
 @app.template_filter('format_bytes')
