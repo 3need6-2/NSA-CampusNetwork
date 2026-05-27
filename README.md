@@ -84,11 +84,11 @@ pip install -r requirements.txt
 python app.py
 ```
 
-应用将运行在 `http://localhost:5000`
+应用将运行在 `http://localhost:5001`
 
  2. 访问应用
 
-打开浏览器访问：`http://localhost:5000`
+打开浏览器访问：`http://localhost:5001`
 
  3. 首页操作
 <img width="1795" height="1123" alt="image" src="https://github.com/user-attachments/assets/f58f2dfb-5fca-4878-bd8f-6e6f5f404280" />
@@ -134,7 +134,7 @@ timestamp,src_ip,dst_ip,src_port,dst_port,protocol,bytes,app_category,user
 返回 JSON 格式的统计数据
 
 ```bash
-curl http://localhost:5000/api/stats
+curl http://localhost:5001/api/stats
 ```
 
 **响应示例：**
@@ -456,7 +456,6 @@ curl http://localhost:5000/api/user_profiles
 ---
 
 **最后更新**：2025 年 12 月 1 日
-
 
 
 
