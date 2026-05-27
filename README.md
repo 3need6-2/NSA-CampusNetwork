@@ -185,7 +185,7 @@ curl -X POST http://localhost:5001/api/ai_security/deepseek
 
 ```bash
 export DEEPSEEK_BASE_URL="https://api.deepseek.com"
-export DEEPSEEK_MODEL="deepseek-chat"
+export DEEPSEEK_MODEL="deepseek-v4-flash"
 export DEEPSEEK_TIMEOUT="20"
 ```
 
@@ -493,7 +493,6 @@ curl http://localhost:5001/api/user_profiles
 ---
 
 **最后更新**：2025 年 12 月 1 日
-
 
 
 
