@@ -5,6 +5,7 @@ import os
 import json
 from utils.analysis import TrafficAnalyzer, generate_all_charts
 from utils.user_profile import UserProfileAnalyzer
+from utils.ai_security import AISecurityAnalyzer
 
 app = Flask(__name__)
 
@@ -24,6 +25,7 @@ analyzer = None
 user_profile_analyzer = None
 charts_html = {}
 user_profiles = {}
+ai_security_report = {}
 
 
 def allowed_file(filename):
@@ -33,7 +35,7 @@ def allowed_file(filename):
 
 def load_analyzer(csv_file=None):
     """加载分析器，并生成所有图表和用户画像"""
-    global analyzer, user_profile_analyzer, charts_html, user_profiles
+    global analyzer, user_profile_analyzer, charts_html, user_profiles, ai_security_report
     
     if csv_file is None:
         # 尝试加载默认的 traffic.csv
@@ -56,6 +58,9 @@ def load_analyzer(csv_file=None):
         # 保存用户画像到 JSON
         profiles_path = UPLOAD_FOLDER / 'user_profiles.json'
         user_profile_analyzer.save_profiles(str(profiles_path))
+
+        # 生成本地 AI 安全审查报告。DeepSeek 复核由接口按需触发，避免启动时阻塞。
+        ai_security_report = AISecurityAnalyzer(analyzer.df).generate_report(include_deepseek=False)
         
         return True
     except Exception as e:
@@ -83,13 +88,51 @@ def dashboard():
     user_ranking = analyzer.get_user_traffic_ranking(top_n=10)
     app_category = analyzer.get_app_category_traffic()
     active_hours = analyzer.get_active_hours()
+    attack_map = get_attack_map_stats()
     
     return render_template('dashboard.html',
                           charts_html=charts_html,
                           total_traffic=total_traffic,
                           user_ranking=user_ranking,
                           app_category=app_category,
-                          active_hours=active_hours)
+                          active_hours=active_hours,
+                          ai_security=ai_security_report,
+                          attack_map=attack_map)
+
+
+def get_attack_map_stats():
+    """生成攻击源追踪面板的摘要指标"""
+    if not analyzer or analyzer.df is None or len(analyzer.df) == 0:
+        return {
+            'sources': 0,
+            'top_target': '暂无',
+            'blocked': 0
+        }
+
+    df = analyzer.df
+    sources = df['src_ip'].nunique() if 'src_ip' in df.columns else 0
+    blocked = len(ai_security_report.get('blocked_entities', [])) if ai_security_report else 0
+    top_target = '暂无'
+
+    if 'dst_port' in df.columns and len(df['dst_port']) > 0:
+        top_port = int(df['dst_port'].mode().iloc[0])
+        service_names = {
+            22: 'SSH',
+            53: 'DNS',
+            80: 'HTTP',
+            443: 'HTTPS',
+            3306: 'MySQL',
+            3389: 'RDP',
+            6379: 'Redis',
+        }
+        service = service_names.get(top_port, 'TCP/UDP')
+        top_target = f"Port {top_port} ({service})"
+
+    return {
+        'sources': int(sources),
+        'top_target': top_target,
+        'blocked': blocked
+    }
 
 
 @app.route('/upload', methods=['POST'])
@@ -150,6 +193,34 @@ def api_user_profiles():
                 print(f"加载用户画像失败: {e}")
     
     return jsonify(user_profiles)
+
+
+@app.route('/api/ai_security')
+def api_ai_security():
+    """API 接口 - 返回 AI 安全审查和智能拦截建议"""
+    if not analyzer:
+        return jsonify({})
+
+    global ai_security_report
+    if not ai_security_report:
+        ai_security_report = AISecurityAnalyzer(analyzer.df).generate_report(include_deepseek=False)
+
+    return jsonify(ai_security_report)
+
+
+@app.route('/api/ai_security/deepseek', methods=['POST'])
+def api_ai_security_deepseek():
+    """API 接口 - 使用 DeepSeek 对本地安全审查结果进行复核"""
+    if not analyzer:
+        return jsonify({})
+
+    global ai_security_report
+    local_report = AISecurityAnalyzer(analyzer.df).generate_report(include_deepseek=False)
+    deepseek_report = AISecurityAnalyzer(analyzer.df).generate_report(include_deepseek=True)
+    local_report['deepseek_review'] = deepseek_report.get('deepseek_review', {})
+    ai_security_report = local_report
+
+    return jsonify(ai_security_report)
 
 
 @app.template_filter('format_bytes')
