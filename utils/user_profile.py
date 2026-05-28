@@ -5,14 +5,38 @@ from collections import defaultdict, Counter
 import numpy as np
 
 
+# 应用类别归一化映射：大类 -> 关键词列表
+NORMALIZED_CATEGORIES = {
+    'game': ['game', 'gaming', 'games'],
+    'video': ['video streaming', 'video', 'streaming'],
+    'social': ['social media', 'social'],
+    'chat': ['chat', 'im', 'instant messaging'],
+    'edu': ['education', 'edu', 'learning'],
+    'web': ['web browse', 'web', 'http'],
+    'dns': ['dns'],
+}
+
+
+def _match_big_category(raw_category):
+    """把原始 app_category 标准化为大类（game/video/...），匹配不到返回 None。"""
+    if not isinstance(raw_category, str):
+        return None
+    name = raw_category.lower()
+    for big, keywords in NORMALIZED_CATEGORIES.items():
+        if any(kw in name for kw in keywords):
+            return big
+    return None
+
+
 class UserProfileAnalyzer:
     """用户画像分析类"""
-    
+
     def __init__(self, csv_path):
         """初始化分析器"""
         self.csv_path = csv_path
         self.df = None
         self.user_profiles = {}
+        self._global_variance_threshold = None
         self.load_data()
     
     def load_data(self):
@@ -34,42 +58,27 @@ class UserProfileAnalyzer:
         return self.df['user'].unique().tolist()
     
     def get_app_category_pct(self, user_id):
-        """获取用户应用类别占比"""
+        """获取用户应用类别占比（按归一化后的大类聚合）"""
         user_data = self.df[self.df['user'] == user_id]
         if len(user_data) == 0:
             return {}
-        
+
         app_traffic = user_data.groupby('app_category')['bytes'].sum()
-        total_bytes = app_traffic.sum()
-        
-        # 标准化类别
-        normalized_categories = {
-            'game': ['game', 'gaming', 'games'],
-            'video': ['video streaming', 'video', 'streaming'],
-            'social': ['social media', 'social'],
-            'chat': ['chat', 'im', 'instant messaging'],
-            'edu': ['education', 'edu', 'learning'],
-            'web': ['web browse', 'web', 'http'],
-            'dns': ['dns'],
+        total_bytes = float(app_traffic.sum())
+        if total_bytes <= 0:
+            return {}
+
+        bucket = defaultdict(float)
+        for raw_cat, bytes_val in app_traffic.items():
+            big = _match_big_category(raw_cat)
+            key = big if big is not None else 'others'
+            bucket[key] += float(bytes_val)
+
+        category_pct = {
+            cat: round(b / total_bytes * 100, 2)
+            for cat, b in bucket.items()
+            if b > 0
         }
-        
-        category_pct = {}
-        for cat, keywords in normalized_categories.items():
-            pct = 0
-            for keyword in keywords:
-                matching = app_traffic[app_traffic.index.str.lower().str.contains(keyword, na=False)].sum()
-                pct += matching
-            if pct > 0:
-                category_pct[cat] = round(pct / total_bytes * 100, 2)
-        
-        # 其他类别
-        accounted_bytes = sum([user_data.groupby('app_category')['bytes'].sum()[cat]
-                               for cat in user_data['app_category'].unique()
-                               if any(kw in cat.lower() for kw in [w for keywords in normalized_categories.values() for w in keywords])])
-        others_pct = round((total_bytes - accounted_bytes) / total_bytes * 100, 2) if total_bytes > 0 else 0
-        if others_pct > 0:
-            category_pct['others'] = others_pct
-        
         return category_pct
     
     def get_active_hours(self, user_id):
@@ -195,14 +204,16 @@ class UserProfileAnalyzer:
         if morning_ratio > 30:
             tags.append('早起族')
         
-        # 计算活跃时间方差
+        # 计算活跃时间方差（与全体用户方差中位数比较，判断"规律/波动"）
         if len(active_hours) > 1:
             hour_bytes = [active_hours.get(h, {}).get('bytes', 0) for h in range(24)]
-            variance = np.var(hour_bytes)
-            if variance < np.var(hour_bytes) * 0.5:
-                tags.append('规律用户')
-            else:
-                tags.append('波动用户')
+            variance = float(np.var(hour_bytes))
+            threshold = self._get_variance_threshold()
+            if threshold > 0:
+                if variance < threshold * 0.5:
+                    tags.append('规律用户')
+                elif variance > threshold * 1.5:
+                    tags.append('波动用户')
         
         # ========== 安全标签 ==========
         # 多端口快速访问 - 可疑扫描
@@ -219,6 +230,26 @@ class UserProfileAnalyzer:
         
         return list(set(tags))  # 去重
     
+    def _get_variance_threshold(self):
+        """计算所有用户每小时流量方差的中位数，作为规律/波动判定阈值（懒加载缓存）"""
+        if self._global_variance_threshold is not None:
+            return self._global_variance_threshold
+        if self.df is None or len(self.df) == 0:
+            self._global_variance_threshold = 0.0
+            return 0.0
+
+        pivot = self.df.pivot_table(
+            index='user', columns='hour', values='bytes',
+            aggfunc='sum', fill_value=0,
+        )
+        for h in range(24):
+            if h not in pivot.columns:
+                pivot[h] = 0
+        pivot = pivot[list(range(24))]
+        variances = pivot.var(axis=1, ddof=0)
+        self._global_variance_threshold = float(variances.median()) if len(variances) else 0.0
+        return self._global_variance_threshold
+
     def analyze_all_users(self):
         """分析所有用户生成完整画像"""
         users = self.get_user_list()
