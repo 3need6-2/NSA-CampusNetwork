@@ -1,8 +1,8 @@
 {
   "student_001": {
     "tags": [
-      "早起族",
-      "波动用户"
+      "规律用户",
+      "早起族"
     ],
     "category_pct": {
       "dns": 100.0
@@ -43,12 +43,12 @@
   },
   "student_002": {
     "tags": [
-      "早起族",
+      "波动用户",
       "社交达人",
-      "波动用户"
+      "早起族"
     ],
     "category_pct": {
-      "social": 200.0
+      "social": 100.0
     },
     "active_hours": {
       "8": {
@@ -74,12 +74,12 @@
   },
   "student_003": {
     "tags": [
-      "早起族",
       "波动用户",
+      "早起族",
       "视频大户"
     ],
     "category_pct": {
-      "video": 300.0
+      "video": 100.0
     },
     "active_hours": {
       "8": {
@@ -109,8 +109,8 @@
   },
   "student_004": {
     "tags": [
-      "早起族",
-      "波动用户"
+      "波动用户",
+      "早起族"
     ],
     "category_pct": {
       "others": 100.0
@@ -143,8 +143,8 @@
   },
   "student_005": {
     "tags": [
-      "早起族",
-      "波动用户"
+      "波动用户",
+      "早起族"
     ],
     "category_pct": {
       "web": 100.0
@@ -177,8 +177,8 @@
   },
   "student_006": {
     "tags": [
-      "早起族",
-      "波动用户"
+      "波动用户",
+      "早起族"
     ],
     "category_pct": {
       "others": 100.0
@@ -211,11 +211,11 @@
   },
   "student_007": {
     "tags": [
-      "早起族",
-      "波动用户"
+      "规律用户",
+      "早起族"
     ],
     "category_pct": {
-      "web": 200.0
+      "web": 100.0
     },
     "active_hours": {
       "8": {
@@ -241,12 +241,12 @@
   },
   "student_008": {
     "tags": [
-      "早起族",
       "波动用户",
+      "早起族",
       "视频大户"
     ],
     "category_pct": {
-      "video": 300.0
+      "video": 100.0
     },
     "active_hours": {
       "8": {
@@ -301,8 +301,8 @@
   },
   "student_010": {
     "tags": [
-      "早起族",
-      "波动用户"
+      "波动用户",
+      "早起族"
     ],
     "category_pct": {
       "others": 100.0
@@ -331,11 +331,11 @@
   },
   "student_011": {
     "tags": [
-      "早起族",
-      "波动用户"
+      "规律用户",
+      "早起族"
     ],
     "category_pct": {
-      "web": 200.0
+      "web": 100.0
     },
     "active_hours": {
       "9": {
@@ -365,7 +365,7 @@
       "视频大户"
     ],
     "category_pct": {
-      "video": 300.0
+      "video": 100.0
     },
     "active_hours": {
       "9": {
@@ -387,8 +387,7 @@
   },
   "student_013": {
     "tags": [
-      "早起族",
-      "波动用户"
+      "早起族"
     ],
     "category_pct": {
       "others": 100.0
@@ -445,7 +444,7 @@
       "社交达人"
     ],
     "category_pct": {
-      "social": 200.0
+      "social": 100.0
     },
     "active_hours": {
       "10": {
@@ -516,7 +515,7 @@
       "视频大户"
     ],
     "category_pct": {
-      "video": 300.0
+      "video": 100.0
     },
     "active_hours": {
       "10": {
@@ -587,7 +586,7 @@
       "社交达人"
     ],
     "category_pct": {
-      "social": 200.0
+      "social": 100.0
     },
     "active_hours": {
       "11": {
@@ -612,7 +611,7 @@
       "视频大户"
     ],
     "category_pct": {
-      "video": 300.0
+      "video": 100.0
     },
     "active_hours": {
       "11": {
@@ -727,7 +726,7 @@
   "student_027": {
     "tags": [],
     "category_pct": {
-      "web": 200.0
+      "web": 100.0
     },
     "active_hours": {
       "11": {
@@ -752,7 +751,7 @@
       "视频大户"
     ],
     "category_pct": {
-      "video": 300.0
+      "video": 100.0
     },
     "active_hours": {
       "11": {
@@ -800,7 +799,7 @@
       "社交达人"
     ],
     "category_pct": {
-      "social": 200.0
+      "social": 100.0
     },
     "active_hours": {
       "11": {
@@ -848,7 +847,7 @@
       "视频大户"
     ],
     "category_pct": {
-      "video": 300.0
+      "video": 100.0
     },
     "active_hours": {
       "11": {
@@ -894,7 +893,7 @@
   "student_034": {
     "tags": [],
     "category_pct": {
-      "web": 200.0
+      "web": 100.0
     },
     "active_hours": {
       "11": {
@@ -919,7 +918,7 @@
       "社交达人"
     ],
     "category_pct": {
-      "social": 200.0
+      "social": 100.0
     },
     "active_hours": {
       "12": {
@@ -944,7 +943,7 @@
       "视频大户"
     ],
     "category_pct": {
-      "video": 300.0
+      "video": 100.0
     },
     "active_hours": {
       "12": {
@@ -1059,7 +1058,7 @@
   "student_041": {
     "tags": [],
     "category_pct": {
-      "web": 200.0
+      "web": 100.0
     },
     "active_hours": {
       "12": {
@@ -1084,7 +1083,7 @@
       "视频大户"
     ],
     "category_pct": {
-      "video": 300.0
+      "video": 100.0
     },
     "active_hours": {
       "12": {
@@ -1132,7 +1131,7 @@
       "社交达人"
     ],
     "category_pct": {
-      "social": 200.0
+      "social": 100.0
     },
     "active_hours": {
       "12": {
@@ -1180,7 +1179,7 @@
       "视频大户"
     ],
     "category_pct": {
-      "video": 300.0
+      "video": 100.0
     },
     "active_hours": {
       "12": {
@@ -1226,7 +1225,7 @@
   "student_048": {
     "tags": [],
     "category_pct": {
-      "web": 200.0
+      "web": 100.0
     },
     "active_hours": {
       "12": {
@@ -1251,7 +1250,7 @@
       "社交达人"
     ],
     "category_pct": {
-      "social": 200.0
+      "social": 100.0
     },
     "active_hours": {
       "13": {
@@ -1276,7 +1275,7 @@
       "视频大户"
     ],
     "category_pct": {
-      "video": 300.0
+      "video": 100.0
     },
     "active_hours": {
       "13": {
@@ -1393,7 +1392,7 @@
       "社交达人"
     ],
     "category_pct": {
-      "social": 200.0
+      "social": 100.0
     },
     "active_hours": {
       "14": {
@@ -1418,7 +1417,7 @@
       "视频大户"
     ],
     "category_pct": {
-      "video": 300.0
+      "video": 100.0
     },
     "active_hours": {
       "14": {
@@ -1535,7 +1534,7 @@
       "社交达人"
     ],
     "category_pct": {
-      "social": 200.0
+      "social": 100.0
     },
     "active_hours": {
       "15": {
@@ -1560,7 +1559,7 @@
       "视频大户"
     ],
     "category_pct": {
-      "video": 300.0
+      "video": 100.0
     },
     "active_hours": {
       "15": {
@@ -1677,7 +1676,7 @@
       "社交达人"
     ],
     "category_pct": {
-      "social": 200.0
+      "social": 100.0
     },
     "active_hours": {
       "16": {
@@ -1702,7 +1701,7 @@
       "视频大户"
     ],
     "category_pct": {
-      "video": 300.0
+      "video": 100.0
     },
     "active_hours": {
       "16": {
@@ -1819,7 +1818,7 @@
       "社交达人"
     ],
     "category_pct": {
-      "social": 200.0
+      "social": 100.0
     },
     "active_hours": {
       "17": {
@@ -1844,7 +1843,7 @@
       "视频大户"
     ],
     "category_pct": {
-      "video": 300.0
+      "video": 100.0
     },
     "active_hours": {
       "17": {
