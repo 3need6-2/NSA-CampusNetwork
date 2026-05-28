@@ -179,6 +179,26 @@ def api_stats():
     })
 
 
+@app.route('/api/dashboard_data')
+def api_dashboard_data():
+    """API 接口 - 返回仪表板前端所需的完整数据"""
+    if not analyzer:
+        return jsonify({})
+
+    global ai_security_report
+    if not ai_security_report:
+        ai_security_report = AISecurityAnalyzer(analyzer.df).generate_report(include_deepseek=False)
+
+    return jsonify({
+        'total_traffic': analyzer.get_total_traffic(),
+        'user_ranking': analyzer.get_user_traffic_ranking(top_n=15),
+        'app_category': analyzer.get_app_category_traffic(),
+        'active_hours': analyzer.get_active_hours(),
+        'attack_map': get_attack_map_stats(),
+        'ai_security': ai_security_report
+    })
+
+
 @app.route('/api/user_profiles')
 def api_user_profiles():
     """API 接口 - 返回用户画像数据"""
