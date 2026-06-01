@@ -19,6 +19,8 @@ from utils.user_profile import UserProfileAnalyzer
 from utils.ai_security import AISecurityAnalyzer
 from utils.ml_anomaly import detect_anomalies
 from utils.realtime import ReplayEngine, stream_events
+from utils.metrics import registry, requests_total, bytes_processed, alerts_total, request_duration
+from utils.cache import cache
 
 app = Flask(__name__)
 
@@ -48,6 +50,22 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
 )
 logger = logging.getLogger('nsa.app')
+
+
+@app.before_request
+def before_request_timing() -> None:
+    request._start_time = time.time()
+
+
+@app.after_request
+def after_request_timing(response: Response) -> Response:
+    labels = {'method': request.method, 'endpoint': request.endpoint or 'unknown', 'status': str(response.status_code)}
+    requests_total(labels)
+    if hasattr(request, '_start_time'):
+        duration = time.time() - request._start_time
+        request_duration(duration, labels)
+        logger.debug('Request %s %s took %.3fs', request.method, request.path, duration)
+    return response
 
 
 class AnalyzerState:
@@ -268,6 +286,12 @@ def api_health() -> Response:
     })
 
 
+@app.route('/api/metrics')
+def api_metrics() -> Response:
+    """Return Prometheus-style metrics."""
+    return Response(registry.dump(), mimetype='text/plain; version=0.0.4')
+
+
 @app.route('/api/stats')
 def api_stats() -> Response:
     """API endpoint returning traffic statistics."""
@@ -287,6 +311,10 @@ def api_stats() -> Response:
 @app.route('/api/dashboard_data')
 def api_dashboard_data() -> Response:
     """API endpoint returning complete dashboard data."""
+    cached = cache.get('api_dashboard_data')
+    if cached:
+        return jsonify(cached)
+
     snap = state.snapshot()
     analyzer = snap['analyzer']
     if not analyzer:
@@ -297,7 +325,7 @@ def api_dashboard_data() -> Response:
         security_report = AISecurityAnalyzer(analyzer.df).generate_report(include_deepseek=False)
         state.update_security_report(security_report)
 
-    return jsonify({
+    data = {
         'total_traffic': analyzer.get_total_traffic(),
         'user_ranking': analyzer.get_user_traffic_ranking(top_n=15),
         'app_category': analyzer.get_app_category_traffic(),
@@ -305,7 +333,9 @@ def api_dashboard_data() -> Response:
         'attack_map': _attack_map_stats(analyzer, security_report),
         'ai_security': security_report,
         'ml_anomaly': snap['ml_anomaly_report'] or detect_anomalies(analyzer.df),
-    })
+    }
+    cache.set('api_dashboard_data', data, ttl=60)
+    return jsonify(data)
 
 
 @app.route('/api/export/json')
@@ -353,15 +383,22 @@ def api_export_csv() -> Response:
 @app.route('/api/user_profiles')
 def api_user_profiles() -> Response:
     """API endpoint returning user profile data."""
+    cached = cache.get('api_user_profiles')
+    if cached:
+        return jsonify(cached)
+
     snap = state.snapshot()
     if snap['user_profiles']:
+        cache.set('api_user_profiles', snap['user_profiles'], ttl=120)
         return jsonify(snap['user_profiles'])
 
     profiles_path = UPLOAD_FOLDER / 'user_profiles.json'
     if profiles_path.exists():
         try:
             with open(profiles_path, 'r', encoding='utf-8') as f:
-                return jsonify(json.load(f))
+                data = json.load(f)
+                cache.set('api_user_profiles', data, ttl=120)
+                return jsonify(data)
         except Exception:
             logger.exception('加载用户画像失败')
 
