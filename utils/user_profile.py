@@ -248,6 +248,15 @@ class UserProfileAnalyzer:
         if total_packets > 100:
             tags.append('数据采集者')
 
+        src_ips = user_data['src_ip'].unique()
+        all_private = all(
+            ip.startswith('10.') or ip.startswith('192.168.') or
+            any(ip.startswith(f'172.{i}.') for i in range(16, 32))
+            for ip in src_ips
+        )
+        if all_private and len(src_ips) > 0:
+            tags.append('内网用户')
+
         vpn_data = user_data[(user_data['dst_port'] == 443) & (user_data['protocol'] == 'UDP')]
         vpn_bytes = vpn_data['bytes'].sum()
         vpn_ratio = vpn_bytes / total_bytes * 100 if total_bytes > 0 else 0
