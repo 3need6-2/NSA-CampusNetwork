@@ -31,6 +31,13 @@ deepseek:
   # API timeout in seconds
   timeout: 20
 
+analysis:
+  # Default top N for user traffic ranking
+  default_top_n: 10
+
+  # Default contamination parameter for ML anomaly detection
+  default_contamination: 0.1
+
 logging:
   # Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
   level: "INFO"
