@@ -359,6 +359,24 @@ def api_analyze_batch() -> Response:
     return jsonify({'results': results, 'errors': errors, 'total': len(files), 'success': len(results)})
 
 
+@app.route('/api/status')
+def api_status() -> Response:
+    import psutil
+    snap = state.snapshot()
+    uptime_seconds = time.time() - _process_start_time
+    memory = psutil.Process().memory_info().rss
+    return jsonify({
+        'status': 'ok',
+        'uptime_seconds': uptime_seconds,
+        'memory_bytes': memory,
+        'data_loaded': snap['analyzer'] is not None,
+        'records_loaded': len(snap['analyzer'].df) if snap['analyzer'] else 0,
+        'version': '1.0.0',
+    })
+
+_process_start_time = time.time()
+
+
 @app.route('/api/config')
 def api_config() -> Response:
     """Return current app configuration excluding secrets."""
