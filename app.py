@@ -318,6 +318,47 @@ def upload() -> str:
         return redirect(url_for('index'))
 
 
+@app.route('/api/analyze/batch', methods=['POST'])
+@limiter.limit("2 per minute")
+def api_analyze_batch() -> Response:
+    """Accept multiple CSV files for batch analysis."""
+    files = request.files.getlist('file')
+    if not files:
+        return jsonify({'error': 'no_files', 'message': '请上传至少一个 CSV 文件。'}), 400
+
+    results = []
+    errors = []
+
+    for file in files:
+        if file.filename == '' or not allowed_file(file.filename):
+            errors.append({'file': file.filename, 'error': '不支持的文件格式'})
+            continue
+
+        try:
+            filename = secure_filename(f'batch_{int(time.time())}_{file.filename}')
+            filepath = UPLOAD_FOLDER / filename
+            file.save(str(filepath))
+
+            ok, err = run_with_timeout(load_analyzer, app.config['REQUEST_TIMEOUT'], filepath)
+            if ok:
+                snap = state.snapshot()
+                results.append({
+                    'file': file.filename,
+                    'status': 'success',
+                    'total_records': len(snap['analyzer'].df) if snap['analyzer'] else 0,
+                    'total_traffic': snap['analyzer'].get_total_traffic() if snap['analyzer'] else {},
+                })
+            else:
+                errors.append({'file': file.filename, 'error': err})
+        except concurrent.futures.TimeoutError:
+            errors.append({'file': file.filename, 'error': f'分析超时（超过 {app.config["REQUEST_TIMEOUT"]} 秒）'})
+        except Exception as exc:
+            logger.exception('批量处理文件失败: %s', file.filename)
+            errors.append({'file': file.filename, 'error': str(exc)})
+
+    return jsonify({'results': results, 'errors': errors, 'total': len(files), 'success': len(results)})
+
+
 @app.route('/api/config')
 def api_config() -> Response:
     """Return current app configuration excluding secrets."""
