@@ -690,6 +690,31 @@ def api_realtime_rate() -> Response:
     return jsonify(ReplayEngine.instance().set_rate(rate))
 
 
+@app.route('/api/realtime/metrics')
+def api_realtime_metrics() -> Response:
+    status = ReplayEngine.instance().status()
+    return jsonify({
+        'running': status['running'],
+        'sent_events': status['metrics']['sent_events'],
+        'total_bytes': status['metrics']['total_bytes'],
+        'unique_users': status['metrics']['unique_users'],
+        'alerts': status['metrics']['alerts_triggered'],
+    })
+
+
+@app.route('/api/replay/finished')
+def api_replay_finished() -> Response:
+    engine = ReplayEngine.instance()
+    status = engine.status()
+    return jsonify({'finished': not status['running'] and status['metrics']['sent_events'] > 0})
+
+
+@app.route('/api/replay/reset', methods=['POST'])
+def api_replay_reset() -> Response:
+    ReplayEngine._instance = None
+    return jsonify({'status': 'ok', 'message': 'Replay state reset'})
+
+
 @app.route('/api/realtime/status')
 def api_realtime_status() -> Response:
     """API endpoint returning replay status and metrics."""
