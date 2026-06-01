@@ -1,3 +1,5 @@
+"""AI-powered security analysis utilities for campus network traffic."""
+
 import json
 import os
 import re
@@ -15,6 +17,8 @@ from utils.constants import SENSITIVE_PORTS, PROMPT_INJECTION_TERMS, AI_AGENT_TE
 
 @dataclass
 class DeepSeekConfig:
+    """Configuration for DeepSeek API access."""
+
     api_key: Optional[str]
     base_url: str
     model: str
@@ -22,6 +26,7 @@ class DeepSeekConfig:
 
     @classmethod
     def from_env(cls) -> "DeepSeekConfig":
+        """Create a DeepSeekConfig from environment variables."""
         return cls(
             api_key=os.getenv("DEEPSEEK_API_KEY"),
             base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
@@ -34,12 +39,15 @@ class DeepSeekSecurityReviewer:
     """Use DeepSeek for defensive review of summarized traffic findings."""
 
     def __init__(self, config: Optional[DeepSeekConfig] = None) -> None:
+        """Initialize the reviewer with an optional config."""
         self.config: DeepSeekConfig = config or DeepSeekConfig.from_env()
 
     def is_configured(self) -> bool:
+        """Check if the DeepSeek API key is configured."""
         return bool(self.config.api_key)
 
     def review(self, local_report: Dict[str, Any]) -> Dict[str, Any]:
+        """Send a local security report to DeepSeek for defensive review."""
         if not self.is_configured():
             return {
                 "enabled": False,
@@ -121,6 +129,7 @@ class DeepSeekSecurityReviewer:
             }
 
     def _compact_report(self, report: Dict[str, Any]) -> Dict[str, Any]:
+        """Compress a full report into a minimal subset for API submission."""
         return {
             "summary": report.get("summary", {}),
             "top_alerts": report.get("alerts", [])[:8],
@@ -129,6 +138,7 @@ class DeepSeekSecurityReviewer:
         }
 
     def _parse_json_content(self, content: str) -> Dict[str, Any]:
+        """Parse JSON content from a DeepSeek response with fallback regex extraction."""
         try:
             return json.loads(content)
         except json.JSONDecodeError:
@@ -142,11 +152,13 @@ class AISecurityAnalyzer:
     """Local defensive analytics for attack review and smart interception advice."""
 
     def __init__(self, df: Optional[pd.DataFrame]):
+        """Initialize the analyzer with an optional DataFrame."""
         self.df = df.copy() if df is not None else pd.DataFrame()
         self.alerts: List[Dict[str, Any]] = []
         self.blocked_entities: List[Dict[str, Any]] = []
 
     def generate_report(self, include_deepseek: bool = False) -> Dict[str, Any]:
+        """Generate a complete security report with alerts and blocklist."""
         self._prepare_data()
         if self.df.empty:
             report = {
@@ -187,6 +199,7 @@ class AISecurityAnalyzer:
         return report
 
     def _prepare_data(self) -> None:
+        """Prepare and normalize DataFrame columns."""
         if self.df.empty:
             return
 
@@ -203,6 +216,7 @@ class AISecurityAnalyzer:
                 self.df[col] = self.df[col].fillna("unknown").astype(str)
 
     def _detect_port_scanning(self) -> None:
+        """Detect potential port scanning behavior from traffic data."""
         required = {"user", "src_ip", "dst_ip", "dst_port", "timestamp"}
         if not required.issubset(self.df.columns):
             return
@@ -236,6 +250,7 @@ class AISecurityAnalyzer:
                 )
 
     def _detect_sensitive_service_access(self) -> None:
+        """Detect anomalous access to sensitive services."""
         required = {"user", "src_ip", "dst_ip", "dst_port"}
         if not required.issubset(self.df.columns):
             return
@@ -267,6 +282,7 @@ class AISecurityAnalyzer:
                 )
 
     def _detect_volume_anomalies(self) -> None:
+        """Detect users with traffic volumes significantly above baseline."""
         required = {"user", "bytes"}
         if not required.issubset(self.df.columns):
             return
@@ -296,6 +312,7 @@ class AISecurityAnalyzer:
                 )
 
     def _detect_unusual_hour_activity(self) -> None:
+        """Detect unusual activity during off-hours."""
         required = {"user", "hour", "bytes"}
         if not required.issubset(self.df.columns):
             return
@@ -328,6 +345,7 @@ class AISecurityAnalyzer:
                 )
 
     def _detect_ai_assisted_attack_indicators(self) -> None:
+        """Detect prompt injection, AI agent, and web payload attack indicators."""
         text_columns = self._text_columns()
         if not text_columns:
             return
@@ -376,6 +394,7 @@ class AISecurityAnalyzer:
         suggested_action: str,
         score: int,
     ) -> None:
+        """Create an alert for a specific row that matched attack indicators."""
         row = self.df.loc[idx]
         src_ip = str(row.get("src_ip", "unknown"))
         user = str(row.get("user", "unknown"))
@@ -391,6 +410,7 @@ class AISecurityAnalyzer:
         )
 
     def _build_blocklist(self) -> None:
+        """Build a prioritized blocklist from high-scoring alerts."""
         candidates: Dict[str, Dict[str, Any]] = {}
         for alert in self.alerts:
             if alert["score"] < 70:
@@ -431,6 +451,7 @@ class AISecurityAnalyzer:
         )
 
     def _build_summary(self) -> Dict[str, Any]:
+        """Build a summary of all alerts with overall risk scoring."""
         if not self.alerts:
             risk_score = 0
         else:
@@ -445,6 +466,7 @@ class AISecurityAnalyzer:
         }
 
     def _ai_defense_summary(self) -> Dict[str, Any]:
+        """Return a summary of AI-assisted attack defense strategies."""
         return {
             "strategy": "按行为、载荷和访问模式识别 AI 辅助攻击，不按 Claude、GPT 等模型名称做单点判断。",
             "controls": [
@@ -458,6 +480,7 @@ class AISecurityAnalyzer:
         }
 
     def _text_columns(self) -> List[str]:
+        """Return the list of text column names available in the DataFrame."""
         preferred = [
             "payload",
             "request",
@@ -475,6 +498,7 @@ class AISecurityAnalyzer:
         return [col for col in preferred if col in self.df.columns]
 
     def _matched_terms(self, text: str, terms: List[str]) -> List[str]:
+        """Return the list of terms that appear in the given text."""
         return [term for term in terms if term in text]
 
     def _add_alert(
@@ -488,6 +512,7 @@ class AISecurityAnalyzer:
         suggested_action: str,
         block_target: Optional[Dict[str, str]] = None,
     ) -> None:
+        """Add a security alert to the internal alerts list."""
         self.alerts.append(
             {
                 "id": f"SEC-{len(self.alerts) + 1:04d}",
@@ -503,6 +528,7 @@ class AISecurityAnalyzer:
         )
 
     def _severity(self, score: int) -> str:
+        """Convert a numeric score to a severity level string."""
         if score >= 90:
             return "critical"
         if score >= 70:
@@ -512,6 +538,7 @@ class AISecurityAnalyzer:
         return "low"
 
     def _format_bytes(self, value: int) -> str:
+        """Format a byte count into a human-readable string."""
         value = float(value)
         for unit in ["B", "KB", "MB", "GB", "TB"]:
             if value < 1024:
