@@ -1,13 +1,4 @@
-"""基于 IsolationForest 的用户行为异常检测。
-
-把每个用户的流量行为压成固定维度的特征向量，用孤立森林无监督地识别
-"看起来跟大多数人不一样"的用户，作为规则引擎的补充。
-
-设计原则：
-- 不替代规则引擎，而是给规则引擎找不到的隐性异常打分。
-- 输出可解释字段：每个异常用户附带触发该评分的关键特征。
-- 与 AISecurityAnalyzer 输出结构对齐，方便前端统一渲染。
-"""
+"""IsolationForest-based user behavior anomaly detection for campus network traffic."""
 
 from __future__ import annotations
 
@@ -25,20 +16,24 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class AnomalyConfig:
-    contamination: float = 0.1     # 预期异常用户比例
+    """Configuration for ML anomaly detection parameters."""
+
+    contamination: float = 0.1
     random_state: int = 42
-    top_n: int = 10                # 最多返回多少异常用户
-    min_users: int = 5             # 用户数低于此值不跑模型
+    top_n: int = 10
+    min_users: int = 5
 
 
 class MLAnomalyDetector:
-    """基于 IsolationForest 的用户级异常检测。"""
+    """User-level anomaly detector using IsolationForest."""
 
     def __init__(self, df: Optional[pd.DataFrame], config: Optional[AnomalyConfig] = None) -> None:
+        """Initialize the detector with a DataFrame and optional config."""
         self.df: pd.DataFrame = df.copy() if df is not None else pd.DataFrame()
         self.config: AnomalyConfig = config or AnomalyConfig()
 
     def detect(self) -> Dict[str, Any]:
+        """Run IsolationForest anomaly detection on user traffic features."""
         if self.df.empty or "user" not in self.df.columns:
             return self._empty_report("数据为空或缺少 user 列。")
 
@@ -111,6 +106,7 @@ class MLAnomalyDetector:
         }
 
     def _build_features(self) -> pd.DataFrame:
+        """Build a feature matrix from user traffic data for anomaly detection."""
         df = self.df.copy()
 
         # 标准化字段
@@ -163,7 +159,7 @@ class MLAnomalyDetector:
 
     @staticmethod
     def _normalize_scores(raw_scores: np.ndarray) -> np.ndarray:
-        """把 IsolationForest 的 score_samples（越小越异常）映射到 0-100。"""
+        """Map IsolationForest score_samples (lower = more anomalous) to a 0-100 scale."""
         if len(raw_scores) == 0:
             return raw_scores
         inverted = -raw_scores
@@ -175,8 +171,8 @@ class MLAnomalyDetector:
 
     @staticmethod
     def _format_record(row: pd.Series) -> Dict[str, Any]:
+        """Format an anomaly record into a structured dictionary with top features."""
         feature_dict = {name: float(round(row[name], 2)) for name in FEATURE_NAMES}
-        # 选出该用户最突出的 3 个特征作为人话解释
         zscore = (
             (row[FEATURE_NAMES] - row[FEATURE_NAMES].mean())
             / (row[FEATURE_NAMES].std(ddof=0) or 1.0)
@@ -196,6 +192,7 @@ class MLAnomalyDetector:
 
     @staticmethod
     def _empty_report(message: str) -> Dict[str, Any]:
+        """Return an empty/skipped report structure."""
         return {
             "status": "skipped",
             "message": message,
@@ -213,6 +210,7 @@ class MLAnomalyDetector:
 
 
 def _severity_from_score(score: float) -> str:
+    """Convert a numeric anomaly score to a severity level string."""
     if score >= 85:
         return "critical"
     if score >= 70:
@@ -223,5 +221,5 @@ def _severity_from_score(score: float) -> str:
 
 
 def detect_anomalies(df: pd.DataFrame, config: Optional[AnomalyConfig] = None) -> Dict[str, Any]:
-    """便利函数。"""
+    """Convenience function to run anomaly detection."""
     return MLAnomalyDetector(df, config).detect()
