@@ -403,6 +403,21 @@ class TrafficAnalyzer:
         }
 
     @staticmethod
+    def get_weekday_analysis(self) -> Dict[str, Any]:
+        if self.df is None or len(self.df) == 0:
+            return {"weekday_bytes": 0, "weekend_bytes": 0, "daily_averages": {}}
+        self.df['day_of_week'] = self.df['timestamp'].dt.dayofweek
+        daily = self.df.groupby('day_of_week')['bytes'].sum()
+        weekday_bytes = int(daily.loc[daily.index < 5].sum()) if any(daily.index < 5) else 0
+        weekend_bytes = int(daily.loc[daily.index >= 5].sum()) if any(daily.index >= 5) else 0
+        day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        daily_averages = {day_names[int(d)]: int(v) for d, v in daily.items()}
+        return {
+            "weekday_bytes": weekday_bytes,
+            "weekend_bytes": weekend_bytes,
+            "daily_averages": daily_averages,
+        }
+
     def get_traffic_efficiency(self) -> float:
         if self.df is None or len(self.df) == 0:
             return 0.0
