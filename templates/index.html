@@ -401,6 +401,7 @@
             <div class="console-line"><span class="k">SESSION PACKETS</span><span class="v">{{ total_traffic.total_packets }}</span></div>
             <div class="console-line amber"><span class="k">GROSS VOLUME</span><span class="v">{{ total_traffic.total_bytes | format_bytes }}</span></div>
             <div class="console-line violet"><span class="k">UNIQUE IPS</span><span class="v">{{ total_traffic.unique_ips }}</span></div>
+            <div class="console-line"><span class="k">LAST ANALYSIS</span><span class="v" id="last-analysis-ts">--</span></div>
             {% else %}
             <div class="console-line"><span class="k">DATA PIPELINE</span><span class="v" style="color: var(--amber);">STANDBY</span></div>
             <div class="console-line"><span class="k">RULE ENGINE</span><span class="v" style="color: var(--green);">READY</span></div>
@@ -441,7 +442,7 @@
         <div class="sub">支持 CSV 格式，单次最大 50 MB。上传后自动重新分析并刷新所有面板。</div>
         <form method="POST" action="/upload" enctype="multipart/form-data">
             <label class="dropzone" for="fileInput">
-                <input type="file" id="fileInput" name="file" accept=".csv" onchange="this.form.submit()">
+                <input type="file" id="fileInput" name="file" accept=".csv" onchange="onFileSelected(this)">
                 <div class="icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -452,6 +453,7 @@
                 <div class="title">点击选择 CSV 文件 / 或拖放到此处</div>
                 <div class="hint">仅支持 CSV · 最大 50MB · 上传后自动覆盖当前样本</div>
             </label>
+            <div id="file-info" style="display:none;margin-top:12px;padding:10px 14px;border:1px solid var(--border);border-radius:6px;background:rgba(2,6,23,0.5);font-size:13px;color:var(--muted);"></div>
         </form>
         <div class="schema">
             <strong style="color: var(--text);">CSV 列要求</strong>
@@ -461,6 +463,21 @@
 </div>
 <script>
 (function() {
+    function onFileSelected(input) {
+        var fileInfo = document.getElementById('file-info');
+        if (input.files && input.files[0]) {
+            var f = input.files[0];
+            var sizeStr = f.size < 1024 ? f.size + ' B' : f.size < 1048576 ? (f.size / 1024).toFixed(1) + ' KB' : (f.size / 1048576).toFixed(2) + ' MB';
+            fileInfo.style.display = 'block';
+            fileInfo.innerHTML = '<strong style="color:var(--text);">' + f.name + '</strong>  <span style="color:var(--subtle);">' + sizeStr + '</span>';
+            var form = input.closest('form');
+            if (form) form.submit();
+        }
+    }
+    var tsEl = document.getElementById('last-analysis-ts');
+    if (tsEl) {
+        tsEl.textContent = new Date().toLocaleString('zh-CN', { hour12: false });
+    }
     var form = document.querySelector('form');
     var loading = document.getElementById('loading');
     var errorMsg = document.getElementById('error-msg');
