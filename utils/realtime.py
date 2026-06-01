@@ -1,15 +1,4 @@
-"""流量回放与实时事件总线。
-
-把已上传的 CSV 当成回放素材，按可配置速率推送给前端，模拟真实
-态势感知系统的实时数据流。前端通过 SSE (Server-Sent Events)
-订阅事件，无需额外 WebSocket 依赖。
-
-设计要点：
-- 单例 ReplayEngine，整个应用进程共享一个回放线程。
-- pub/sub：每个 SSE 客户端拿到一个 queue，引擎广播到所有 queue。
-- 边推送边维护近 N 条窗口与近 M 分钟流量趋势，避免前端自己重算。
-- 触发简易实时告警（端口扫描、大流量、敏感端口），让大屏看起来"会动"。
-"""
+"""Traffic replay and real-time event bus for campus network monitoring."""
 
 from __future__ import annotations
 
@@ -40,7 +29,7 @@ from utils.constants import (
 
 @dataclass
 class ReplayMetrics:
-    """回放过程中累计的实时指标。"""
+    """Cumulative real-time metrics collected during replay."""
     sent_events: int = 0
     total_bytes: int = 0
     unique_users: set = field(default_factory=set)
@@ -50,6 +39,7 @@ class ReplayMetrics:
     last_event_at: Optional[float] = None
 
     def snapshot(self) -> Dict[str, Any]:
+        """Return a snapshot of current metrics as a dictionary."""
         return {
             "sent_events": self.sent_events,
             "total_bytes": int(self.total_bytes),
@@ -62,12 +52,13 @@ class ReplayMetrics:
 
 
 class ReplayEngine:
-    """线程安全的流量回放引擎，单例。"""
+    """Thread-safe traffic replay engine with singleton pattern."""
 
     _instance: Optional["ReplayEngine"] = None
     _instance_lock: threading.Lock = threading.Lock()
 
     def __init__(self) -> None:
+        """Initialize the replay engine with default state."""
         self._lock: threading.RLock = threading.RLock()
         self._thread: Optional[threading.Thread] = None
         self._stop_flag: threading.Event = threading.Event()
@@ -82,6 +73,7 @@ class ReplayEngine:
 
     @classmethod
     def instance(cls) -> "ReplayEngine":
+        """Return the singleton ReplayEngine instance."""
         with cls._instance_lock:
             if cls._instance is None:
                 cls._instance = cls()
@@ -90,6 +82,7 @@ class ReplayEngine:
     # ----- 控制接口 ----------------------------------------------------
 
     def start(self, df: pd.DataFrame, rate: float = 5.0, loop: bool = True) -> Dict[str, Any]:
+        """Start the replay engine with the given DataFrame."""
         with self._lock:
             if self.is_running():
                 return {"status": "already_running", "message": "回放线程已在运行。"}
@@ -109,6 +102,7 @@ class ReplayEngine:
             return {"status": "started", "rate": self._rate, "loop": self._loop, "rows": len(self._df)}
 
     def stop(self) -> Dict[str, Any]:
+        """Stop the replay engine."""
         with self._lock:
             if not self.is_running():
                 return {"status": "not_running"}
@@ -119,16 +113,18 @@ class ReplayEngine:
         return {"status": "stopped"}
 
     def set_rate(self, rate: float) -> Dict[str, Any]:
-        """运行中即时改速率，无需重启。"""
+        """Change the replay rate on the fly without restarting."""
         with self._lock:
             self._rate = max(0.5, float(rate))
         logger.info("回放速率已调整: %.1f/s", self._rate)
         return {"status": "ok", "rate": self._rate}
 
     def is_running(self) -> bool:
+        """Check if the replay engine is currently running."""
         return self._thread is not None and self._thread.is_alive() and not self._stop_flag.is_set()
 
     def status(self) -> Dict[str, Any]:
+        """Return the current status and metrics of the replay engine."""
         with self._lock:
             return {
                 "running": self.is_running(),
@@ -143,6 +139,7 @@ class ReplayEngine:
     # ----- 订阅接口 ----------------------------------------------------
 
     def subscribe(self) -> queue.Queue:
+        """Subscribe a new queue to receive replay events."""
         q: queue.Queue = queue.Queue(maxsize=512)
         with self._lock:
             self._subscribers.append(q)
@@ -154,6 +151,7 @@ class ReplayEngine:
         return q
 
     def unsubscribe(self, q: queue.Queue) -> None:
+        """Unsubscribe a queue from receiving replay events."""
         with self._lock:
             if q in self._subscribers:
                 self._subscribers.remove(q)
@@ -161,6 +159,7 @@ class ReplayEngine:
     # ----- 内部实现 ----------------------------------------------------
 
     def _prepare(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Prepare and normalize the DataFrame for replay."""
         df = df.copy()
         for col in ["bytes", "src_port", "dst_port"]:
             if col in df.columns:
@@ -173,12 +172,14 @@ class ReplayEngine:
         return df.reset_index(drop=True)
 
     def _reset_state(self) -> None:
+        """Reset engine state while preserving start time."""
         self._metrics = ReplayMetrics(started_at=self._metrics.started_at)
         self._recent_events.clear()
         self._traffic_buckets.clear()
         self._port_seen.clear()
 
     def _run(self) -> None:
+        """Main replay loop that broadcasts events to subscribers."""
         assert self._df is not None
         try:
             while not self._stop_flag.is_set():
@@ -200,6 +201,7 @@ class ReplayEngine:
             self._broadcast({"type": "finished", "payload": self._metrics.snapshot()})
 
     def _build_event(self, row: pd.Series) -> Dict[str, Any]:
+        """Build an event dictionary from a DataFrame row."""
         bytes_val = int(row.get("bytes", 0))
         return {
             "ts": time.time(),
@@ -214,6 +216,7 @@ class ReplayEngine:
         }
 
     def _update_state(self, event: Dict[str, Any]) -> None:
+        """Update engine metrics and state from a new event."""
         with self._lock:
             self._metrics.sent_events += 1
             self._metrics.total_bytes += event["bytes"]
@@ -229,6 +232,7 @@ class ReplayEngine:
                 self._broadcast({"type": "alert", "payload": alert})
 
     def _update_buckets(self, event: Dict[str, Any]) -> None:
+        """Update traffic time buckets with a new event's data."""
         bucket_ts = int(event["ts"] // BUCKET_SECONDS) * BUCKET_SECONDS
         if not self._traffic_buckets:
             self._traffic_buckets.append({"ts": bucket_ts, "bytes": 0, "events": 0})
@@ -244,6 +248,7 @@ class ReplayEngine:
         cur["events"] += 1
 
     def _check_alerts(self, event: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Check a new event for port scan, large flow, and sensitive port alerts."""
         alerts: List[Dict[str, Any]] = []
         now = event["ts"]
 
@@ -285,6 +290,7 @@ class ReplayEngine:
         return alerts
 
     def _broadcast(self, message: Dict[str, Any]) -> None:
+        """Broadcast a message to all active subscriber queues."""
         with self._lock:
             dead: List[queue.Queue] = []
             for q in self._subscribers:
@@ -297,12 +303,12 @@ class ReplayEngine:
 
 
 def sse_format(message: Dict[str, Any]) -> str:
-    """把消息序列化为 SSE 格式。"""
+    """Serialize a message dictionary into SSE format."""
     return f"event: {message.get('type', 'message')}\ndata: {json.dumps(message.get('payload'), ensure_ascii=False)}\n\n"
 
 
 def stream_events(stop_event: threading.Event, heartbeat_interval: float = 15.0) -> Iterable[str]:
-    """供 Flask 路由调用：订阅引擎并产出 SSE 字符串。"""
+    """Subscribe to the replay engine and yield SSE-formatted event strings."""
     engine = ReplayEngine.instance()
     q = engine.subscribe()
     try:
