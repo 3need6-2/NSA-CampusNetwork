@@ -91,6 +91,10 @@
             transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
         }
         .btn:hover { transform: translateY(-1px); border-color: rgba(56, 189, 248, 0.55); }
+        .btn:focus-visible {
+            outline: 2px solid var(--cyan);
+            outline-offset: 2px;
+        }
         .btn.primary {
             border-color: rgba(34, 197, 94, 0.55);
             background: rgba(34, 197, 94, 0.18);
@@ -338,8 +342,40 @@
             }
         }
         @media (max-width: 1100px) {
-            .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .kpi-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
             .grid { grid-template-columns: 1fr; }
+            .shell { width: calc(100vw - 24px); padding: 14px 0 24px; }
+        }
+        @media (max-width: 768px) {
+            .topbar { flex-direction: column; gap: 12px; padding: 12px 14px; }
+            .controls { width: 100%; justify-content: center; }
+            .brand { width: 100%; justify-content: center; text-align: center; }
+            .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+            .kpi { padding: 14px 14px; min-height: 96px; }
+            .kpi .value { font-size: clamp(18px, 5vw, 26px); }
+            #trafficChart { height: 200px !important; }
+            .panel { padding: 14px 14px; }
+            .table-wrap { max-height: 260px; }
+            .alert-list { max-height: 260px; }
+            .input { width: 64px; }
+        }
+        @media (max-width: 480px) {
+            .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+            .kpi { padding: 10px 10px; min-height: 80px; }
+            .kpi .value { font-size: clamp(16px, 4.5vw, 22px); }
+            .kpi .name { font-size: 9px; }
+            .shell { width: calc(100vw - 12px); padding: 8px 0 16px; }
+            .controls { gap: 6px; }
+            .btn, a.nav-link { font-size: 11px; padding: 0 8px; min-height: 30px; }
+            .brand-text h1 { font-size: 16px; }
+            .brand-text p { font-size: 10px; }
+            #trafficChart { height: 160px !important; }
+            table { font-size: 10px; }
+            th, td { padding: 6px 6px; }
+        }
+        @media (max-width: 360px) {
+            .kpi-row { grid-template-columns: 1fr 1fr; gap: 6px; }
+            .btn, a.nav-link { font-size: 10px; padding: 0 6px; min-height: 28px; }
         }
     </style>
 </head>
@@ -354,43 +390,43 @@
             </div>
         </div>
         <div class="controls">
-            <span class="status-pill stopped" id="statusPill"><span class="dot"></span><span id="statusText">未启动</span></span>
-            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);">
+            <span class="status-pill stopped" id="statusPill" title="当前回放引擎状态"><span class="dot"></span><span id="statusText">未启动</span></span>
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);" title="SSE 服务器推送连接状态">
                 <span id="sse-indicator" style="width:10px;height:10px;border-radius:50%;background:var(--muted);display:inline-block;"></span>
                 <span id="sse-text">SSE 断开</span>
             </span>
-            <span class="label">速率</span>
-            <input id="rateInput" type="number" class="input" min="0.5" max="50" step="0.5" value="5">
+            <span class="label" title="数据回放速率（事件/秒）">速率</span>
+            <input id="rateInput" type="number" class="input" min="0.5" max="50" step="0.5" value="5" title="回放速率: 每秒发送的事件数">
             <button class="btn" id="applyRateBtn" title="运行中可即时调整速率">应用</button>
-            <button class="btn primary" id="startBtn">▶ 启动回放</button>
-            <button class="btn danger" id="stopBtn" disabled>■ 停止</button>
-            <button class="btn" id="pauseBtn">⏸ 暂停</button>
-            <a class="nav-link" href="/dashboard">← 返回仪表板</a>
+            <button class="btn primary" id="startBtn" title="开始回放流量数据">▶ 启动回放</button>
+            <button class="btn danger" id="stopBtn" disabled title="停止当前回放">■ 停止</button>
+            <button class="btn" id="pauseBtn" title="暂停/恢复事件渲染">⏸ 暂停</button>
+            <a class="nav-link" href="/dashboard" title="返回主仪表板页面">← 返回仪表板</a>
         </div>
     </div>
 
     <div class="kpi-row">
-        <div class="kpi cyan"><div class="name">Sent Events</div><div class="value" id="kpiEvents">0</div></div>
-        <div class="kpi green"><div class="name">Total Bytes</div><div class="value" id="kpiBytes">0 B</div></div>
-        <div class="kpi violet"><div class="name">Active Users</div><div class="value" id="kpiUsers">0</div></div>
-        <div class="kpi amber"><div class="name">Source IPs</div><div class="value" id="kpiIps">0</div></div>
-        <div class="kpi red"><div class="name">Live Alerts</div><div class="value" id="kpiAlerts">0</div></div>
-        <div class="kpi cyan" style="grid-column: span 1;"><div class="name">Event Rate</div><div class="value" id="kpiRate">0.0/s</div></div>
+        <div class="kpi cyan" title="已发送的 SSE 事件总数"><div class="name">Sent Events</div><div class="value" id="kpiEvents">0</div></div>
+        <div class="kpi green" title="回放期间传输的总字节数"><div class="name">Total Bytes</div><div class="value" id="kpiBytes">0 B</div></div>
+        <div class="kpi violet" title="检测到的活跃用户数量"><div class="name">Active Users</div><div class="value" id="kpiUsers">0</div></div>
+        <div class="kpi amber" title="不同的源 IP 地址数量"><div class="name">Source IPs</div><div class="value" id="kpiIps">0</div></div>
+        <div class="kpi red" title="触发的告警总数"><div class="name">Live Alerts</div><div class="value" id="kpiAlerts">0</div></div>
+        <div class="kpi cyan" style="grid-column: span 1;" title="当前事件速率（近 5 秒平均）"><div class="name">Event Rate</div><div class="value" id="kpiRate">0.0/s</div></div>
     </div>
 
     <div class="grid">
         <div class="panel">
             <div class="panel-head">
                 <h3>实时流量曲线 / 5秒聚合</h3>
-                <span class="panel-tag live">● LIVE</span>
+                <span class="panel-tag live" title="实时数据流已连接">● LIVE</span>
             </div>
             <canvas id="trafficChart"></canvas>
         </div>
         <div class="panel">
             <div class="panel-head">
                 <h3>实时告警流</h3>
-                <span class="panel-tag">RULE ENGINE</span>
-                <input id="alertSearch" type="text" placeholder="过滤告警…" style="min-height:30px;padding:0 10px;border:1px solid var(--border);border-radius:4px;background:rgba(2,6,23,0.7);color:var(--text);font-size:12px;width:160px;font-family:inherit;">
+                <span class="panel-tag" title="基于规则的实时告警引擎">RULE ENGINE</span>
+                <input id="alertSearch" type="text" placeholder="过滤告警…" title="输入关键词过滤告警列表" style="min-height:30px;padding:0 10px;border:1px solid var(--border);border-radius:4px;background:rgba(2,6,23,0.7);color:var(--text);font-size:12px;width:160px;font-family:inherit;">
             </div>
             <div class="alert-list" id="alertList">
                 <div class="empty-state">等待启动回放…</div>
@@ -402,13 +438,13 @@
         <div class="panel">
             <div class="panel-head">
                 <h3>最近事件流 · 最新 30 条</h3>
-                <span class="panel-tag">EVENT BUS</span>
+                <span class="panel-tag" title="从 SSE 流接收的最新事件">EVENT BUS</span>
             </div>
             <div class="table-wrap">
                 <table id="eventTable">
                     <thead>
                     <tr>
-                        <th>时间</th><th>用户</th><th>源 IP</th><th>目的 IP:端口</th><th>协议</th><th>类别</th><th class="num">字节</th>
+                        <th title="事件时间戳">时间</th><th title="用户名">用户</th><th title="源 IP 地址">源 IP</th><th title="目的 IP 地址:端口">目的 IP:端口</th><th title="网络协议">协议</th><th title="应用类别">类别</th><th class="num" title="流量字节数">字节</th>
                     </tr>
                     </thead>
                     <tbody></tbody>
@@ -418,7 +454,7 @@
         <div class="panel">
             <div class="panel-head">
                 <h3>ML 异常用户排行</h3>
-                <span class="panel-tag">ISOLATION FOREST</span>
+                <span class="panel-tag" title="基于 Isolation Forest 算法的异常检测">ISOLATION FOREST</span>
             </div>
             <div id="mlBox">
                 <div class="ml-empty">加载中…</div>
@@ -516,17 +552,6 @@
     // ---- pause/resume ---------------------------------------------
     let paused = false;
     let pausedEvents = [];
-
-    // ---- event table ----------------------------------------------
-    let eventTimestamps = [];
-    function updateEventRate() {
-        var now = Date.now();
-        eventTimestamps.push(now);
-        var cutoff = now - 5000;
-        eventTimestamps = eventTimestamps.filter(function(t) { return t > cutoff; });
-        var rate = (eventTimestamps.length / 5).toFixed(1);
-        el('kpiRate').textContent = rate + '/s';
-    }
 
     // ---- event table ----------------------------------------------
     const tbody = el('eventTable').querySelector('tbody');
