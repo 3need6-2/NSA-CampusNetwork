@@ -512,6 +512,14 @@ def api_dashboard_data() -> Response:
     return jsonify(data)
 
 
+@app.route('/api/notify/test', methods=['POST'])
+def api_notify_test() -> Response:
+    payload = request.get_json(silent=True) or {}
+    message = payload.get('message', 'Test notification')
+    logger.info('Test notification: %s', message)
+    return jsonify({'status': 'ok', 'message': message})
+
+
 @app.route('/api/export/pdf')
 def api_export_pdf() -> Response:
     return jsonify({'status': 'not_implemented', 'message': 'PDF export is not yet implemented.'}), 501
