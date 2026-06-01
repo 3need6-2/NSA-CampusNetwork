@@ -66,33 +66,106 @@ ML 异常检测：使用 IsolationForest 对用户行为做无监督异常评分
 
 <img width="1692" height="1093" alt="image" src="https://github.com/user-attachments/assets/82819ec1-d386-421c-84ee-dda90a4f02e8" />
 
+## Screenshots
 
-项目结构
+| View | Description |
+|------|-------------|
+| Home Console | System status cards, CSV upload, navigation |
+| Security Dashboard | Charts, AI audit, ML anomalies, user profiles |
+| Real-Time Dashboard | SSE-powered live traffic replay and alerts |
+| User Profile Cards | Application, protocol, and activity time charts |
+
+> Screenshots above show the main dashboard views. Additional screenshots are available in the project documentation.
+
+## Project Structure
 
 ```
-NSA-CampusNetwork-git/
+NSA-CampusNetwork/
 │
-├── app.py                      # Flask 主程序、路由、全局分析状态管理
-├── utils/
-│   ├── analysis.py             # 基础流量分析与 Plotly 图表生成函数
-│   ├── user_profile.py         # 用户画像分析与标签生成模块
-│   ├── ai_security.py          # 本地安全审查、智能拦截建议、DeepSeek 复核
-│   ├── ml_anomaly.py           # IsolationForest 用户异常检测模块
-│   └── realtime.py             # 流量回放引擎与 SSE 事件流模块
-├── templates/
-│   ├── index.html              # 首页控制台与 CSV 上传入口
-│   ├── dashboard.html          # 安全仪表板、图表、画像和 ML 检测展示
-│   └── realtime.html           # 实时态势感知大屏
-├── data/
-│   ├── traffic.csv             # 示例流量数据
-│   └── user_profiles.json      # 用户画像输出文件
-├── requirements.txt            # 项目依赖
-├── run.sh                      # 快速启动脚本
-├── check_project.py            # 项目结构与数据检查工具
-├── STARTUP_GUIDE.py            # 启动说明打印脚本
-├── PROJECT_SUMMARY.md          # 项目总结文档
-├── DELIVERY_CHECKLIST.md       # 交付清单
-└── README.md                   # 本文件
+├── app.py                      # Flask entry point, routes, global state
+├── config.yaml                 # Application configuration
+├── pyproject.toml              # Project metadata, tool config
+├── Makefile                    # Build, test, lint commands
+├── Dockerfile                  # Docker image definition
+├── docker-compose.yml          # Multi-service Docker setup
+├── requirements.txt            # Runtime dependencies
+├── requirements-dev.txt        # Development dependencies
+├── run.sh                      # Quick-start shell script
+├── check_project.py            # Project structure validator
+├── STARTUP_GUIIDE.py            # Startup guide script
+│
+├── utils/                      # Core analysis modules
+│   ├── analysis.py             # Traffic analysis & Plotly charts
+│   ├── user_profile.py         # User profiling & tag generation
+│   ├── ai_security.py          # AI security audit & DeepSeek review
+│   ├── ml_anomaly.py           # IsolationForest anomaly detection
+│   ├── realtime.py             # SSE replay engine
+│   ├── cache.py                # In-memory caching layer
+│   ├── metrics.py              # Prometheus-style metrics
+│   ├── constants.py            # Shared constants
+│   ├── backup.py               # Data backup utilities
+│   ├── database.py             # Database persistence (future)
+│   ├── logging_config.py       # Logging configuration
+│   └── response.py             # Response helpers
+│
+├── templates/                  # Jinja2 HTML templates
+│   ├── index.html              # Home page (console + upload)
+│   ├── dashboard.html          # Security dashboard
+│   └── realtime.html           # Real-time dashboard
+│
+├── static/                     # Static assets (CSS, JS, images)
+│
+├── data/                       # Data storage
+│   ├── traffic.csv             # Sample traffic data
+│   └── user_profiles.json      # Generated user profiles
+│
+├── tests/                      # Test suite
+│   ├── conftest.py             # Pytest fixtures
+│   ├── test_analysis.py        # Analysis module tests
+│   ├── test_analysis_extended.py
+│   ├── test_ai_security.py     # AI security tests
+│   ├── test_app.py             # Flask app tests
+│   ├── test_constants.py       # Constants tests
+│   ├── test_ml_anomaly.py      # ML anomaly tests
+│   ├── test_ml_models.py       # ML model tests
+│   ├── test_realtime.py        # Realtime engine tests
+│   ├── test_response.py        # Response helpers tests
+│   ├── test_security_rules.py  # Security rules tests
+│   └── test_user_profile.py    # User profile tests
+│
+├── docs/                       # Documentation
+│   ├── api.md                  # API reference
+│   ├── deployment.md           # Deployment guide
+│   ├── architecture.md         # System architecture
+│   ├── development.md          # Developer guide
+│   ├── troubleshooting.md      # Troubleshooting guide
+│   └── faq.md                  # Frequently asked questions
+│
+├── scripts/                    # Utility scripts
+│
+├── .github/                    # GitHub Actions workflows
+│
+├── .env.example                # Environment variable template
+├── .editorconfig               # Editor settings
+├── .pre-commit-config.yaml     # Pre-commit hooks
+├── .pylintrc                   # Pylint configuration
+├── mypy.ini                    # MyPy type checker config
+├── .gitignore                  # Git ignore rules
+├── .dockerignore               # Docker ignore rules
+│
+├── LICENSE                     # MIT License
+├── README.md                   # This file
+├── CONTRIBUTING.md             # Contribution guidelines
+├── CHANGELOG.md                # Version changelog
+├── AUTHORS.md                  # Project authors
+├── CODE_OF_CONDUCT.md          # Code of conduct
+├── SECURITY.md                 # Security policy
+├── SUPPORT.md                  # Support information
+├── ROADMAP.md                  # Development roadmap
+├── USAGE.md                    # Detailed usage guide
+├── PROJECT_SUMMARY.md          # Project summary
+├── DELIVERY_CHECKLIST.md       # Delivery checklist
+└── SECURITY.md                 # Security disclosure
 ```
 
 环境要求
@@ -726,15 +799,30 @@ venv\Scripts\activate     # Windows
 - 在 `/realtime` 点击“启动回放”
 - 检查 `/api/realtime/status` 是否显示 `running: true`
 
-技术栈
+## Contributing
 
-- **后端框架**：Flask 2.3.2
-- **Web 工具库**：Werkzeug 2.3.6
-- **数据处理**：Pandas 2.0.3、NumPy
-- **数据可视化**：Plotly 5.15.0、Chart.js 3.9.1/4.4.1 CDN
-- **机器学习**：scikit-learn IsolationForest
-- **实时推送**：Server-Sent Events (SSE)
-- **前端实现**：Jinja2 模板、自定义 CSS、原生 JavaScript
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## Tech Stack
+
+| Category | Technologies |
+|---|---|
+| Backend Framework | Flask 2.3.2, Werkzeug 2.3.6 |
+| Data Processing | Pandas 2.0.3, NumPy |
+| Data Visualization | Plotly 5.15.0, Chart.js 3.9.1 / 4.4.1 (CDN) |
+| Machine Learning | scikit-learn (IsolationForest, One-Class SVM, LOF) |
+| Real-Time Communication | Server-Sent Events (SSE) |
+| Frontend | Jinja2 Templates, Custom CSS, Vanilla JavaScript |
+| Containerization | Docker, Docker Compose |
+| Testing | Pytest |
+| Linting / Formatting | Flake8, Black, isort, MyPy |
+| CI/CD | GitHub Actions |
 
 开发与扩展
 
