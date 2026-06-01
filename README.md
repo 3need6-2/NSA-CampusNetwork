@@ -1,5 +1,9 @@
 校园网态势感知系统-流量分析画像与安全可视化模块
 
+![CI](https://github.com/Arbeiter-bit/NSA-CampusNetwork/workflows/CI/badge.svg)
+![Lint](https://github.com/Arbeiter-bit/NSA-CampusNetwork/workflows/Lint/badge.svg)
+![Docker Build](https://github.com/Arbeiter-bit/NSA-CampusNetwork/workflows/Docker%20Build/badge.svg)
+
 <img width="1265" height="1052" alt="image" src="https://github.com/user-attachments/assets/cc80649a-4fe8-433b-baa5-55d49e6dde40" />
 
 
@@ -32,6 +36,17 @@ ML 异常检测：使用 IsolationForest 对用户行为做无监督异常评分
 - 用户协议占比图
 - 用户活跃时段柱状图
 - 实时大屏 KPI 指标、实时流量曲线、实时告警流和最近事件流
+
+## Features
+
+- **Traffic Analysis** - Aggregate traffic statistics, user ranking, application category distribution, and hourly traffic trends
+- **User Profiling** - Automatic user behavior analysis with tag generation (application, time pattern, security tags)
+- **AI Security Audit** - Local rule engine for port scanning detection, sensitive service access, anomalous traffic, and AI-assisted attack identification
+- **DeepSeek Review** - Optional secondary verification using DeepSeek API, sending only summarized risk evidence
+- **ML Anomaly Detection** - IsolationForest-based unsupervised anomaly scoring to catch hidden outliers
+- **Real-time Dashboard** - SSE-powered live traffic replay with real-time curves, event streams, and alert feeds
+- **Smart Blocking** - Risk-based mitigation strategies: rate limiting, step-up authentication, or quarantine
+- **Interactive Visualizations** - Chart.js and Plotly-powered dark-themed security dashboards
 
 <img width="2484" height="2127" alt="image" src="https://github.com/user-attachments/assets/05e3154f-c1af-49de-84cb-0655993f2c93" />
 
@@ -133,6 +148,35 @@ python app.py
 - **上传新数据**：通过 CSV 上传区域上传新流量文件，系统会覆盖 `data/traffic.csv`
 - **查看安全仪表板**：点击“进入安全仪表板”进入 `/dashboard`
 - **进入实时大屏**：点击“实时态势大屏”进入 `/realtime`
+
+## Quick Start
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/Arbeiter-bit/NSA-CampusNetwork.git
+cd NSA-CampusNetwork
+
+# 2. Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Run with sample data
+python app.py
+
+# 5. Open in browser
+# http://localhost:5001
+```
+
+Or using Docker:
+
+```bash
+docker-compose up --build
+```
+
+---
 
 CSV 文件格式
 
