@@ -14,6 +14,7 @@ import json
 import logging
 import threading
 import time
+import concurrent.futures
 from utils.analysis import TrafficAnalyzer, generate_all_charts
 from utils.user_profile import UserProfileAnalyzer
 from utils.ai_security import AISecurityAnalyzer
@@ -29,9 +30,11 @@ limiter = Limiter(app=app, key_func=get_remote_address)
 UPLOAD_FOLDER = Path(__file__).parent / 'data'
 ALLOWED_EXTENSIONS = {'csv'}
 MAX_CONTENT_LENGTH = 50 * 1024 * 1024
+REQUEST_TIMEOUT = int(os.getenv('REQUEST_TIMEOUT', '300'))
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
+app.config['REQUEST_TIMEOUT'] = REQUEST_TIMEOUT
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'nsa-campus-network-dev-key')
 
 UPLOAD_FOLDER.mkdir(exist_ok=True)
@@ -141,6 +144,17 @@ class AnalyzerState:
 
 
 state = AnalyzerState()
+
+
+def run_with_timeout(func, timeout: int, *args, **kwargs):
+    """Run a function with a timeout using a thread pool."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(func, *args, **kwargs)
+        try:
+            return future.result(timeout=timeout)
+        except concurrent.futures.TimeoutError:
+            logger.error('Function %s timed out after %ds', func.__name__, timeout)
+            raise concurrent.futures.TimeoutError(f'{func.__name__} timed out after {timeout}s')
 
 
 def allowed_file(filename: str) -> bool:
@@ -278,12 +292,15 @@ def upload() -> str:
             filepath.unlink(missing_ok=True)
             return redirect(url_for('index'))
 
-        ok, err = load_analyzer(filepath)
+        ok, err = run_with_timeout(load_analyzer, app.config['REQUEST_TIMEOUT'], filepath)
         if ok:
             flash('上传并分析完成，已切换到最新数据。', 'success')
             return redirect(url_for('dashboard'))
 
         flash(err or '上传失败，请检查 CSV 内容。', 'danger')
+        return redirect(url_for('index'))
+    except concurrent.futures.TimeoutError:
+        flash(f'分析超时（超过 {app.config["REQUEST_TIMEOUT"]} 秒），文件可能过大。', 'danger')
         return redirect(url_for('index'))
     except Exception as exc:
         logger.exception('文件上传失败')
