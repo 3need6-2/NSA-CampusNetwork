@@ -1,3 +1,5 @@
+"""Traffic analysis utilities for campus network data."""
+
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -5,16 +7,16 @@ from pathlib import Path
 
 
 class TrafficAnalyzer:
-    """校园网流量分析类"""
+    """Campus network traffic analysis class."""
     
     def __init__(self, csv_path):
-        """初始化分析器，加载 CSV 文件"""
+        """Initialize the analyzer and load the CSV file."""
         self.csv_path = csv_path
         self.df = None
         self.load_data()
     
     def load_data(self):
-        """加载 CSV 文件"""
+        """Load the CSV file into a DataFrame."""
         try:
             self.df = pd.read_csv(self.csv_path)
             self.df['timestamp'] = pd.to_datetime(self.df['timestamp'])
@@ -26,7 +28,7 @@ class TrafficAnalyzer:
             return False
     
     def get_total_traffic(self):
-        """获取总流量统计"""
+        """Return total traffic statistics."""
         if self.df is None or len(self.df) == 0:
             return {"total_bytes": 0, "total_packets": 0, "unique_users": 0}
         
@@ -38,7 +40,7 @@ class TrafficAnalyzer:
         }
     
     def get_user_traffic_ranking(self, top_n=10):
-        """获取用户流量排名"""
+        """Return user traffic rankings."""
         if self.df is None or len(self.df) == 0:
             return []
         
@@ -46,7 +48,7 @@ class TrafficAnalyzer:
         return [{"user": user, "bytes": int(bytes_val)} for user, bytes_val in user_traffic.items()]
     
     def get_app_category_traffic(self):
-        """获取应用类别流量分布"""
+        """Return traffic distribution by application category."""
         if self.df is None or len(self.df) == 0:
             return []
         
@@ -54,11 +56,7 @@ class TrafficAnalyzer:
         return [{"category": cat, "bytes": int(bytes_val)} for cat, bytes_val in app_traffic.items()]
     
     def get_traffic_trend(self, unit='hour'):
-        """获取流量趋势
-        
-        Args:
-            unit: 'hour' 按小时, 'minute' 按分钟
-        """
+        """Return traffic trend data over time."""
         if self.df is None or len(self.df) == 0:
             return []
         
@@ -73,7 +71,7 @@ class TrafficAnalyzer:
         return result
     
     def get_active_hours(self):
-        """获取活跃时段分析（按小时的用户活跃度）"""
+        """Return hourly user activity analysis."""
         if self.df is None or len(self.df) == 0:
             return []
         
@@ -90,7 +88,7 @@ class TrafficAnalyzer:
         return hourly_stats.to_dict('records')
     
     def get_user_app_distribution(self, user_id):
-        """获取指定用户的应用类别占比"""
+        """Return application category distribution for a user."""
         if self.df is None or len(self.df) == 0:
             return []
         
@@ -103,7 +101,7 @@ class TrafficAnalyzer:
 
 
 def generate_traffic_trend_chart(analyzer):
-    """生成流量趋势折线图（HTML）"""
+    """Generate a traffic trend line chart as HTML."""
     trend_data = analyzer.get_traffic_trend('hour')
     
     if not trend_data:
@@ -136,7 +134,7 @@ def generate_traffic_trend_chart(analyzer):
 
 
 def generate_app_category_pie_chart(analyzer):
-    """生成应用类别饼图（HTML）"""
+    """Generate an application category pie chart as HTML."""
     app_data = analyzer.get_app_category_traffic()
     
     if not app_data:
@@ -160,7 +158,7 @@ def generate_app_category_pie_chart(analyzer):
 
 
 def generate_user_ranking_chart(analyzer):
-    """生成用户流量排行条形图（HTML）"""
+    """Generate a user traffic ranking bar chart as HTML."""
     user_data = analyzer.get_user_traffic_ranking(top_n=15)
     
     if not user_data:
@@ -192,7 +190,7 @@ def generate_user_ranking_chart(analyzer):
 
 
 def generate_active_hours_chart(analyzer):
-    """生成活跃时段折线图（HTML）"""
+    """Generate an active hours line chart as HTML."""
     active_data = analyzer.get_active_hours()
     
     if not active_data:
@@ -251,7 +249,7 @@ def generate_active_hours_chart(analyzer):
 
 
 def generate_all_charts(analyzer):
-    """生成所有图表"""
+    """Generate all charts as HTML."""
     return {
         'traffic_trend': generate_traffic_trend_chart(analyzer),
         'app_category': generate_app_category_pie_chart(analyzer),
