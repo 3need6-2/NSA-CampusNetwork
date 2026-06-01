@@ -1,5 +1,7 @@
 """Traffic analysis utilities for campus network data."""
 
+from typing import Any, Dict, List, Optional
+
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -9,13 +11,13 @@ from pathlib import Path
 class TrafficAnalyzer:
     """Campus network traffic analysis class."""
     
-    def __init__(self, csv_path):
+    def __init__(self, csv_path: str) -> None:
         """Initialize the analyzer and load the CSV file."""
-        self.csv_path = csv_path
-        self.df = None
+        self.csv_path: str = csv_path
+        self.df: Optional[pd.DataFrame] = None
         self.load_data()
     
-    def load_data(self):
+    def load_data(self) -> bool:
         """Load the CSV file into a DataFrame."""
         try:
             self.df = pd.read_csv(self.csv_path)
@@ -27,7 +29,7 @@ class TrafficAnalyzer:
             print(f"数据加载失败: {e}")
             return False
     
-    def get_total_traffic(self):
+    def get_total_traffic(self) -> Dict[str, Any]:
         """Return total traffic statistics."""
         if self.df is None or len(self.df) == 0:
             return {"total_bytes": 0, "total_packets": 0, "unique_users": 0}
@@ -39,7 +41,7 @@ class TrafficAnalyzer:
             "unique_ips": self.df['src_ip'].nunique() + self.df['dst_ip'].nunique()
         }
     
-    def get_user_traffic_ranking(self, top_n=10):
+    def get_user_traffic_ranking(self, top_n: int = 10) -> List[Dict[str, Any]]:
         """Return user traffic rankings."""
         if self.df is None or len(self.df) == 0:
             return []
@@ -47,7 +49,7 @@ class TrafficAnalyzer:
         user_traffic = self.df.groupby('user')['bytes'].sum().sort_values(ascending=False).head(top_n)
         return [{"user": user, "bytes": int(bytes_val)} for user, bytes_val in user_traffic.items()]
     
-    def get_app_category_traffic(self):
+    def get_app_category_traffic(self) -> List[Dict[str, Any]]:
         """Return traffic distribution by application category."""
         if self.df is None or len(self.df) == 0:
             return []
@@ -55,7 +57,7 @@ class TrafficAnalyzer:
         app_traffic = self.df.groupby('app_category')['bytes'].sum().sort_values(ascending=False)
         return [{"category": cat, "bytes": int(bytes_val)} for cat, bytes_val in app_traffic.items()]
     
-    def get_traffic_trend(self, unit='hour'):
+    def get_traffic_trend(self, unit: str = 'hour') -> List[Dict[str, Any]]:
         """Return traffic trend data over time."""
         if self.df is None or len(self.df) == 0:
             return []
@@ -70,7 +72,7 @@ class TrafficAnalyzer:
             result.append({"time": str(timestamp), "bytes": int(bytes_val)})
         return result
     
-    def get_active_hours(self):
+    def get_active_hours(self) -> List[Dict[str, Any]]:
         """Return hourly user activity analysis."""
         if self.df is None or len(self.df) == 0:
             return []
@@ -87,7 +89,7 @@ class TrafficAnalyzer:
         
         return hourly_stats.to_dict('records')
     
-    def get_user_app_distribution(self, user_id):
+    def get_user_app_distribution(self, user_id: str) -> List[Dict[str, Any]]:
         """Return application category distribution for a user."""
         if self.df is None or len(self.df) == 0:
             return []
@@ -100,7 +102,7 @@ class TrafficAnalyzer:
         return [{"category": cat, "bytes": int(bytes_val)} for cat, bytes_val in app_dist.items()]
 
 
-def generate_traffic_trend_chart(analyzer):
+def generate_traffic_trend_chart(analyzer: TrafficAnalyzer) -> str:
     """Generate a traffic trend line chart as HTML."""
     trend_data = analyzer.get_traffic_trend('hour')
     
@@ -133,7 +135,7 @@ def generate_traffic_trend_chart(analyzer):
     return fig.to_html(div_id="traffic_trend_chart", include_plotlyjs=False)
 
 
-def generate_app_category_pie_chart(analyzer):
+def generate_app_category_pie_chart(analyzer: TrafficAnalyzer) -> str:
     """Generate an application category pie chart as HTML."""
     app_data = analyzer.get_app_category_traffic()
     
@@ -157,7 +159,7 @@ def generate_app_category_pie_chart(analyzer):
     return fig.to_html(div_id="app_category_pie_chart", include_plotlyjs=False)
 
 
-def generate_user_ranking_chart(analyzer):
+def generate_user_ranking_chart(analyzer: TrafficAnalyzer) -> str:
     """Generate a user traffic ranking bar chart as HTML."""
     user_data = analyzer.get_user_traffic_ranking(top_n=15)
     
@@ -189,7 +191,7 @@ def generate_user_ranking_chart(analyzer):
     return fig.to_html(div_id="user_ranking_chart", include_plotlyjs=False)
 
 
-def generate_active_hours_chart(analyzer):
+def generate_active_hours_chart(analyzer: TrafficAnalyzer) -> str:
     """Generate an active hours line chart as HTML."""
     active_data = analyzer.get_active_hours()
     
@@ -248,7 +250,7 @@ def generate_active_hours_chart(analyzer):
     return fig.to_html(div_id="active_hours_chart", include_plotlyjs=False)
 
 
-def generate_all_charts(analyzer):
+def generate_all_charts(analyzer: TrafficAnalyzer) -> Dict[str, str]:
     """Generate all charts as HTML."""
     return {
         'traffic_trend': generate_traffic_trend_chart(analyzer),
