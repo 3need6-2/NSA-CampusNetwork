@@ -1,3 +1,5 @@
+import random
+
 import pytest
 import pandas as pd
 import tempfile
@@ -44,6 +46,64 @@ def sample_df():
     from io import StringIO
     df = pd.read_csv(StringIO(SAMPLE_CSV_CONTENT))
     df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['hour'] = df['timestamp'].dt.hour
+    df['date'] = df['timestamp'].dt.date
+    return df
+
+
+LARGE_CSV_CONTENT = """\
+timestamp,src_ip,dst_ip,src_port,dst_port,protocol,bytes,app_category,user
+""" + "\n".join(
+    f"2025-12-{d:02d} {h:02d}:{m:02d}:{s:02d},192.168.{u//256}.{u%256},10.0.{d}.{h},{p},{p+1},{'TCP' if p%2 else 'UDP'},{b},{cat},user_{u}"
+    for d in range(1, 4)
+    for h in range(6, 22, 2)
+    for m in range(0, 60, 15)
+    for s in [0]
+    for u in [h * 10 + m // 15]
+    for p in [80, 443, 53, 22, 3306]
+    for b in [random.randint(64, 65535)]
+    for cat in [['DNS', 'Web', 'Video', 'Social', 'Chat'][p % 5]]
+)
+
+
+@pytest.fixture
+def large_sample_df():
+    from io import StringIO
+    df = pd.read_csv(StringIO(LARGE_CSV_CONTENT))
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['hour'] = df['timestamp'].dt.hour
+    df['date'] = df['timestamp'].dt.date
+    return df
+
+
+SINGLE_USER_CSV = """\
+timestamp,src_ip,dst_ip,src_port,dst_port,protocol,bytes,app_category,user
+2025-12-01 08:00:00,192.168.1.10,8.8.8.8,52341,53,UDP,256,DNS,solo_user
+2025-12-01 08:05:00,192.168.1.10,142.251.41.14,52456,443,TCP,4096,Web,solo_user
+2025-12-01 08:10:00,192.168.1.10,13.226.123.45,52789,80,TCP,2048,Video,solo_user
+"""
+
+
+@pytest.fixture
+def single_user_df():
+    from io import StringIO
+    df = pd.read_csv(StringIO(SINGLE_USER_CSV))
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['hour'] = df['timestamp'].dt.hour
+    df['date'] = df['timestamp'].dt.date
+    return df
+
+
+EMPTY_CSV = """\
+timestamp,src_ip,dst_ip,src_port,dst_port,protocol,bytes,app_category,user
+"""
+
+
+@pytest.fixture
+def empty_df():
+    from io import StringIO
+    df = pd.read_csv(StringIO(EMPTY_CSV))
+    df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
     df['hour'] = df['timestamp'].dt.hour
     df['date'] = df['timestamp'].dt.date
     return df
