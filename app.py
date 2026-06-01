@@ -576,6 +576,27 @@ def api_traffic_timeline() -> Response:
     return jsonify({'timeline': timeline, 'count': len(timeline), 'from': from_str, 'to': to_str})
 
 
+@app.route('/api/traffic/protocols')
+def api_traffic_protocols() -> Response:
+    """Return protocol distribution data."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    proto = analyzer.df.groupby('protocol').agg({'bytes': 'sum', 'timestamp': 'count'}).reset_index()
+    protocols = [
+        {'protocol': r['protocol'], 'bytes': int(r['bytes']), 'packet_count': int(r['timestamp'])}
+        for _, r in proto.iterrows()
+    ]
+    protocols.sort(key=lambda x: x['bytes'], reverse=True)
+    total = sum(p['bytes'] for p in protocols)
+    for p in protocols:
+        p['percentage'] = round(p['bytes'] / total * 100, 2) if total > 0 else 0
+
+    return jsonify({'protocols': protocols, 'total_bytes': total})
+
+
 @app.template_filter('format_bytes')
 def format_bytes(bytes_val: Union[int, float]) -> str:
     """Jinja template filter to format byte counts as human-readable strings."""
