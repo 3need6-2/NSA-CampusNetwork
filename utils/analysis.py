@@ -403,6 +403,9 @@ class TrafficAnalyzer:
         }
 
     @staticmethod
+    def is_data_loaded(self) -> bool:
+        return self.df is not None and len(self.df) > 0
+
     def get_weekday_analysis(self) -> Dict[str, Any]:
         if self.df is None or len(self.df) == 0:
             return {"weekday_bytes": 0, "weekend_bytes": 0, "daily_averages": {}}
