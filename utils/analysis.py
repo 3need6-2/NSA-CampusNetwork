@@ -155,6 +155,13 @@ class TrafficAnalyzer:
             return 0.0
         return round((latest - previous) / previous * 100, 2)
 
+    def sample_data(self, fraction: float = 0.1, random_state: Optional[int] = None) -> pd.DataFrame:
+        """Return a random sample of the dataframe for large dataset exploration."""
+        if self.df is None or len(self.df) == 0:
+            return pd.DataFrame()
+        n = max(1, int(len(self.df) * fraction))
+        return self.df.sample(n=n, random_state=random_state)
+
     def get_user_count(self) -> int:
         if self.df is None or len(self.df) == 0:
             return 0
