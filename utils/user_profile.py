@@ -110,6 +110,21 @@ class UserProfileAnalyzer:
             protocol_ratio[protocol] = round(bytes_val / total_bytes * 100, 2)
         
         return protocol_ratio
+
+    def get_encryption_ratio(self, user_id: str) -> Dict[str, Any]:
+        """Return ratio of encrypted vs unencrypted traffic for a user."""
+        user_data = self.df[self.df['user'] == user_id]
+        if len(user_data) == 0:
+            return {"encrypted_packets": 0, "unencrypted_packets": 0, "encryption_ratio": 0.0}
+        encrypted = user_data[user_data['dst_port'] == 443]
+        encrypted_count = len(encrypted)
+        total = len(user_data)
+        unencrypted_count = total - encrypted_count
+        return {
+            "encrypted_packets": encrypted_count,
+            "unencrypted_packets": unencrypted_count,
+            "encryption_ratio": round(encrypted_count / total * 100, 2) if total > 0 else 0.0
+        }
     
     def get_port_stats(self, user_id: str) -> Dict[int, int]:
         """Return port behavior statistics for a user."""
