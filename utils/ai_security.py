@@ -10,69 +10,7 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-
-SENSITIVE_PORTS = {
-    21: "FTP",
-    22: "SSH",
-    23: "Telnet",
-    25: "SMTP",
-    110: "POP3",
-    135: "RPC",
-    139: "NetBIOS",
-    143: "IMAP",
-    389: "LDAP",
-    445: "SMB",
-    1433: "SQL Server",
-    1521: "Oracle",
-    3306: "MySQL",
-    3389: "RDP",
-    5432: "PostgreSQL",
-    5900: "VNC",
-    6379: "Redis",
-    9200: "Elasticsearch",
-    27017: "MongoDB",
-}
-
-PROMPT_INJECTION_TERMS = [
-    "ignore previous",
-    "ignore all previous",
-    "system prompt",
-    "developer message",
-    "jailbreak",
-    "bypass policy",
-    "disable safety",
-    "reveal prompt",
-    "泄露提示词",
-    "忽略以上",
-    "越狱",
-    "绕过安全",
-]
-
-AI_AGENT_TERMS = [
-    "claude",
-    "anthropic",
-    "openai",
-    "gpt",
-    "llm",
-    "autogen",
-    "langchain",
-    "agent",
-    "browser-use",
-]
-
-WEB_ATTACK_TERMS = [
-    "union select",
-    "' or '1'='1",
-    " or 1=1",
-    "../",
-    "%2e%2e",
-    "<script",
-    "onerror=",
-    "cmd.exe",
-    "/bin/sh",
-    "powershell",
-    "base64",
-]
+from utils.constants import SENSITIVE_PORTS, PROMPT_INJECTION_TERMS, AI_AGENT_TERMS, WEB_ATTACK_TERMS
 
 
 @dataclass
