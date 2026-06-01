@@ -403,6 +403,12 @@ class TrafficAnalyzer:
         }
 
     @staticmethod
+    def get_top_apps(self, top_n: int = 5) -> List[Dict[str, Any]]:
+        if self.df is None or len(self.df) == 0:
+            return []
+        app_traffic = self.df.groupby('app_category')['bytes'].sum().sort_values(ascending=False).head(top_n)
+        return [{"category": cat, "bytes": int(bytes_val)} for cat, bytes_val in app_traffic.items()]
+
     def get_application_port_mapping() -> Dict[str, List[int]]:
         """Return a mapping of app categories to commonly used ports."""
         return {
