@@ -487,6 +487,170 @@ def api_realtime_stream() -> Response:
     return response
 
 
+# ── New API Routes ──────────────────────────────────────────────────────────
+
+
+@app.route('/api/users')
+def api_users() -> Response:
+    """Return list of all users."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    users = sorted(analyzer.df['user'].unique().tolist())
+    return jsonify({'users': users, 'count': len(users)})
+
+
+@app.route('/api/users/<user_id>/profile')
+def api_user_profile(user_id: str) -> Response:
+    """Return profile for a specific user."""
+    snap = state.snapshot()
+    if not snap['analyzer']:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    profile = snap['user_profiles'].get(user_id)
+    if profile is None:
+        return jsonify({'error': 'not_found', 'message': f'用户 {user_id} 不存在。'}), 404
+
+    return jsonify({'user': user_id, 'profile': profile})
+
+
+@app.route('/api/users/<user_id>/traffic')
+def api_user_traffic(user_id: str) -> Response:
+    """Return traffic data for a specific user."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    user_data = analyzer.df[analyzer.df['user'] == user_id]
+    if len(user_data) == 0:
+        return jsonify({'error': 'not_found', 'message': f'用户 {user_id} 不存在。'}), 404
+
+    hourly = user_data.groupby('hour').agg({'bytes': 'sum', 'timestamp': 'count'}).reset_index()
+    active_hours = [
+        {'hour': int(r['hour']), 'bytes': int(r['bytes']), 'count': int(r['timestamp'])}
+        for _, r in hourly.iterrows()
+    ]
+
+    return jsonify({
+        'user': user_id,
+        'total_bytes': int(user_data['bytes'].sum()),
+        'packet_count': len(user_data),
+        'unique_destinations': int(user_data['dst_ip'].nunique()),
+        'app_distribution': analyzer.get_user_app_distribution(user_id),
+        'active_hours': active_hours,
+        'time_range': {
+            'start': str(user_data['timestamp'].min()),
+            'end': str(user_data['timestamp'].max()),
+        },
+    })
+
+
+@app.route('/api/traffic/timeline')
+def api_traffic_timeline() -> Response:
+    """Return traffic timeline with optional from/to filtering."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    df = analyzer.df.copy()
+    from_str = request.args.get('from')
+    to_str = request.args.get('to')
+
+    if from_str:
+        df = df[df['timestamp'] >= from_str]
+    if to_str:
+        df = df[df['timestamp'] <= to_str]
+
+    trend = df.set_index('timestamp').resample('h')['bytes'].sum()
+    timeline = [{'time': str(ts), 'bytes': int(b)} for ts, b in trend.items()]
+
+    return jsonify({'timeline': timeline, 'count': len(timeline), 'from': from_str, 'to': to_str})
+
+
+@app.route('/api/traffic/protocols')
+def api_traffic_protocols() -> Response:
+    """Return protocol distribution data."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    proto = analyzer.df.groupby('protocol').agg({'bytes': 'sum', 'timestamp': 'count'}).reset_index()
+    protocols = [
+        {'protocol': r['protocol'], 'bytes': int(r['bytes']), 'packet_count': int(r['timestamp'])}
+        for _, r in proto.iterrows()
+    ]
+    protocols.sort(key=lambda x: x['bytes'], reverse=True)
+    total = sum(p['bytes'] for p in protocols)
+    for p in protocols:
+        p['percentage'] = round(p['bytes'] / total * 100, 2) if total > 0 else 0
+
+    return jsonify({'protocols': protocols, 'total_bytes': total})
+
+
+@app.route('/api/summary')
+def api_summary() -> Response:
+    """Return a combined summary of all analysis."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    ai_report = snap['ai_security_report'] or {}
+    ml_report = snap['ml_anomaly_report'] or {}
+
+    return jsonify({
+        'total_traffic': analyzer.get_total_traffic(),
+        'user_ranking': analyzer.get_user_traffic_ranking(top_n=5),
+        'app_category': analyzer.get_app_category_traffic(),
+        'active_hours': analyzer.get_active_hours(),
+        'user_count': len(snap['user_profiles']),
+        'security_summary': {
+            'ai_threats': len(ai_report.get('threats', [])),
+            'ml_anomalies': len(ml_report.get('anomalies', [])),
+        },
+    })
+
+
+@app.route('/api/tags')
+def api_tags() -> Response:
+    """Return all unique tags across all users."""
+    snap = state.snapshot()
+    if not snap['analyzer']:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    all_tags = set()
+    for profile in snap['user_profiles'].values():
+        all_tags.update(profile.get('tags', []))
+
+    return jsonify({'tags': sorted(all_tags), 'count': len(all_tags)})
+
+
+@app.route('/api/tags/<tag>')
+def api_tag_users(tag: str) -> Response:
+    """Return users matching a specific tag."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    matched = []
+    for user_id, profile in snap['user_profiles'].items():
+        if tag in profile.get('tags', []):
+            user_data = analyzer.df[analyzer.df['user'] == user_id]
+            matched.append({
+                'user': user_id,
+                'category_pct': profile.get('category_pct'),
+                'total_bytes': int(user_data['bytes'].sum()) if len(user_data) > 0 else 0,
+            })
+
+    return jsonify({'tag': tag, 'users': matched, 'count': len(matched)})
+
+
 @app.template_filter('format_bytes')
 def format_bytes(bytes_val: Union[int, float]) -> str:
     """Jinja template filter to format byte counts as human-readable strings."""
