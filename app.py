@@ -635,6 +635,27 @@ def api_tags() -> Response:
     return jsonify({'tags': sorted(all_tags), 'count': len(all_tags)})
 
 
+@app.route('/api/tags/<tag>')
+def api_tag_users(tag: str) -> Response:
+    """Return users matching a specific tag."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    matched = []
+    for user_id, profile in snap['user_profiles'].items():
+        if tag in profile.get('tags', []):
+            user_data = analyzer.df[analyzer.df['user'] == user_id]
+            matched.append({
+                'user': user_id,
+                'category_pct': profile.get('category_pct'),
+                'total_bytes': int(user_data['bytes'].sum()) if len(user_data) > 0 else 0,
+            })
+
+    return jsonify({'tag': tag, 'users': matched, 'count': len(matched)})
+
+
 @app.template_filter('format_bytes')
 def format_bytes(bytes_val: Union[int, float]) -> str:
     """Jinja template filter to format byte counts as human-readable strings."""
