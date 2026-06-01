@@ -287,6 +287,63 @@ class TrafficAnalyzer:
             "other": 10.0,
         }
 
+    def get_heatmap_data(self) -> List[Dict[str, Any]]:
+        if self.df is None or len(self.df) == 0:
+            return []
+        self.df['day_of_week'] = self.df['timestamp'].dt.dayofweek
+        heatmap = self.df.groupby(['day_of_week', 'hour'])['bytes'].sum().reset_index()
+        heatmap.columns = ['day_of_week', 'hour', 'bytes']
+        return heatmap.to_dict('records')
+
+    def get_anomaly_timeline(self) -> List[Dict[str, Any]]:
+        if self.df is None or len(self.df) == 0:
+            return []
+        timeline = self.df.set_index('timestamp').resample('h').agg(
+            total_bytes=('bytes', 'sum'),
+            packet_count=('timestamp', 'count')
+        ).reset_index()
+        mean_bytes = timeline['total_bytes'].mean()
+        std_bytes = timeline['total_bytes'].std()
+        if std_bytes == 0:
+            std_bytes = 1
+        timeline['anomaly_score'] = timeline['total_bytes'].apply(
+            lambda x: min(1.0, abs(x - mean_bytes) / (3 * std_bytes))
+        )
+        result = []
+        for _, row in timeline.iterrows():
+            result.append({
+                "time": str(row['timestamp']),
+                "total_bytes": int(row['total_bytes']),
+                "packet_count": int(row['packet_count']),
+                "anomaly_score": round(row['anomaly_score'], 4)
+            })
+        return result
+
+    def get_comparison(self, user_a: str, user_b: str) -> Dict[str, Any]:
+        if self.df is None or len(self.df) == 0:
+            return {}
+        ua = self.df[self.df['user'] == user_a]
+        ub = self.df[self.df['user'] == user_b]
+        def _summarize(u: pd.DataFrame, uid: str) -> Dict[str, Any]:
+            if len(u) == 0:
+                return {"user": uid, "total_bytes": 0, "total_packets": 0, "protocols": {}, "categories": {}, "active_hours": 0}
+            return {
+                "user": uid,
+                "total_bytes": int(u['bytes'].sum()),
+                "total_packets": len(u),
+                "protocols": u.groupby('protocol')['bytes'].sum().apply(int).to_dict(),
+                "categories": u.groupby('app_category')['bytes'].sum().apply(int).to_dict(),
+                "active_hours": int(u['hour'].nunique()),
+            }
+        return {
+            "user_a": _summarize(ua, user_a),
+            "user_b": _summarize(ub, user_b),
+            "diff": {
+                "bytes_diff": int(ua['bytes'].sum() - ub['bytes'].sum()),
+                "packets_diff": len(ua) - len(ub),
+            }
+        }
+
     @staticmethod
     def get_application_port_mapping() -> Dict[str, List[int]]:
         """Return a mapping of app categories to commonly used ports."""
