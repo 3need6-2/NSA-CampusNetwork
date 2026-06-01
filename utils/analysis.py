@@ -99,6 +99,18 @@ class TrafficAnalyzer:
         result = [{"user": user, "packets": int(count)} for user, count in user_packets.items()]
         self._set_cache(cache_key, result, ttl=300)
         return result
+
+    def get_protocol_count(self) -> Dict[str, int]:
+        """Return count of events per protocol."""
+        if self.df is None or len(self.df) == 0:
+            return {}
+        cached = self._cache_result('protocol_count')
+        if cached is not None:
+            return cached
+        result = self.df['protocol'].value_counts().to_dict()
+        result = {str(k): int(v) for k, v in result.items()}
+        self._set_cache('protocol_count', result, ttl=300)
+        return result
     
     def get_app_category_traffic(self) -> List[Dict[str, Any]]:
         """Return traffic distribution by application category."""
