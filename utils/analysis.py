@@ -175,6 +175,16 @@ class TrafficAnalyzer:
         tls_bytes = self.df[self.df['dst_port'] == 443]['bytes'].sum()
         return round(tls_bytes / total * 100, 2)
 
+    def get_packet_size_stats(self) -> Dict[str, float]:
+        if self.df is None or len(self.df) == 0:
+            return {"min": 0, "max": 0, "avg": 0, "median": 0}
+        return {
+            "min": float(self.df['bytes'].min()),
+            "max": float(self.df['bytes'].max()),
+            "avg": float(round(self.df['bytes'].mean(), 2)),
+            "median": float(self.df['bytes'].median()),
+        }
+
     def get_concurrent_users(self) -> List[Dict[str, Any]]:
         """Return number of active users per hour bucket."""
         if self.df is None or len(self.df) == 0:
