@@ -5,16 +5,7 @@ from collections import defaultdict, Counter
 import numpy as np
 
 
-# 应用类别归一化映射：大类 -> 关键词列表
-NORMALIZED_CATEGORIES = {
-    'game': ['game', 'gaming', 'games'],
-    'video': ['video streaming', 'video', 'streaming'],
-    'social': ['social media', 'social'],
-    'chat': ['chat', 'im', 'instant messaging'],
-    'edu': ['education', 'edu', 'learning'],
-    'web': ['web browse', 'web', 'http'],
-    'dns': ['dns'],
-}
+from utils.constants import NORMALIZED_CATEGORIES, USER_PROFILE_SUSPICIOUS_PORTS
 
 
 def _match_big_category(raw_category):
@@ -122,10 +113,9 @@ class UserProfileAnalyzer:
         if len(user_data) == 0:
             return {}
         
-        suspicious_ports = [22, 3389, 3306, 8000, 8080, 5000]
         port_stats = {}
         
-        for port in suspicious_ports:
+        for port in USER_PROFILE_SUSPICIOUS_PORTS:
             count = len(user_data[user_data['dst_port'] == port])
             if count > 0:
                 port_stats[port] = count
