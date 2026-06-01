@@ -174,16 +174,19 @@ def load_analyzer(csv_file: Optional[Union[str, Path]] = None) -> Tuple[bool, Op
         if analyzer.df is None or len(analyzer.df) == 0:
             return False, 'CSV 文件为空或解析失败，请检查格式。'
 
-        charts_html = generate_all_charts(analyzer)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+            future_charts = pool.submit(generate_all_charts, analyzer)
+            future_profiles = pool.submit(_build_user_profiles, str(csv_path))
+            future_security = pool.submit(AISecurityAnalyzer(analyzer.df).generate_report, include_deepseek=False)
+            future_ml = pool.submit(detect_anomalies, analyzer.df)
 
-        user_profile_analyzer = UserProfileAnalyzer(str(csv_path))
-        user_profiles = user_profile_analyzer.analyze_all_users()
+            charts_html = future_charts.result()
+            user_profile_analyzer, user_profiles = future_profiles.result()
+            ai_security_report = future_security.result()
+            ml_anomaly_report = future_ml.result()
 
         profiles_path = UPLOAD_FOLDER / 'user_profiles.json'
         user_profile_analyzer.save_profiles(str(profiles_path))
-
-        ai_security_report = AISecurityAnalyzer(analyzer.df).generate_report(include_deepseek=False)
-        ml_anomaly_report = detect_anomalies(analyzer.df)
 
         state.replace(
             analyzer=analyzer,
@@ -200,6 +203,13 @@ def load_analyzer(csv_file: Optional[Union[str, Path]] = None) -> Tuple[bool, Op
     except Exception as exc:
         logger.exception('分析器加载失败')
         return False, f'分析器加载失败: {exc}'
+
+
+def _build_user_profiles(csv_path: str):
+    """Build user profiles helper for thread pool execution."""
+    profile_analyzer = UserProfileAnalyzer(csv_path)
+    profiles = profile_analyzer.analyze_all_users()
+    return profile_analyzer, profiles
 
 
 @app.route('/')
