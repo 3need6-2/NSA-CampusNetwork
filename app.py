@@ -621,6 +621,20 @@ def api_summary() -> Response:
     })
 
 
+@app.route('/api/tags')
+def api_tags() -> Response:
+    """Return all unique tags across all users."""
+    snap = state.snapshot()
+    if not snap['analyzer']:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    all_tags = set()
+    for profile in snap['user_profiles'].values():
+        all_tags.update(profile.get('tags', []))
+
+    return jsonify({'tags': sorted(all_tags), 'count': len(all_tags)})
+
+
 @app.template_filter('format_bytes')
 def format_bytes(bytes_val: Union[int, float]) -> str:
     """Jinja template filter to format byte counts as human-readable strings."""
