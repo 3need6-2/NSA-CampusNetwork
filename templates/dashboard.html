@@ -351,7 +351,7 @@
 
         .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(5, minmax(0, 1fr));
             gap: 14px;
             margin-bottom: 18px;
         }
@@ -365,6 +365,7 @@
         .metric-card:nth-child(2) { border-left-color: var(--green); }
         .metric-card:nth-child(3) { border-left-color: var(--amber); }
         .metric-card:nth-child(4) { border-left-color: var(--violet); }
+        .metric-card:nth-child(5) { border-left-color: var(--red); }
 
         .metric-label {
             color: var(--muted);
@@ -560,7 +561,7 @@
             }
 
             .metrics-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
+                grid-template-columns: repeat(3, minmax(0, 1fr));
             }
         }
 
@@ -705,6 +706,11 @@
                 <div class="metric-label">IP 数量</div>
                 <div class="metric-value" id="unique-ips">--</div>
                 <div class="metric-note">源 IP 与目标 IP 汇总</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">总包数</div>
+                <div class="metric-value" id="total-packets-formatted">--</div>
+                <div class="metric-note">包含所有协议的流量包</div>
             </div>
         </section>
 
@@ -929,6 +935,7 @@
 
             setText('total-bytes', formatBytes(traffic.total_bytes));
             setText('total-packets', traffic.total_packets || 0);
+            setText('total-packets-formatted', (traffic.total_packets || 0).toLocaleString());
             setText('unique-users', traffic.unique_users || 0);
             setText('unique-ips', traffic.unique_ips || 0);
 
