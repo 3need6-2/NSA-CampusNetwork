@@ -1,3 +1,5 @@
+"""Flask web application for campus network traffic analysis and monitoring."""
+
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, Response, stream_with_context
@@ -33,6 +35,8 @@ logger = logging.getLogger('nsa.app')
 
 
 class AnalyzerState:
+    """Thread-safe global analyzer state container."""
+
     def __init__(self) -> None:
         self._lock: threading.RLock = threading.RLock()
         self.analyzer: Optional[TrafficAnalyzer] = None
@@ -43,6 +47,7 @@ class AnalyzerState:
         self.ml_anomaly_report: Dict[str, Any] = {}
 
     def replace(self, analyzer: TrafficAnalyzer, user_profile_analyzer: UserProfileAnalyzer, charts_html: Dict[str, str], user_profiles: Dict[str, Any], ai_security_report: Dict[str, Any], ml_anomaly_report: Dict[str, Any]) -> None:
+        """Replace the current state with new analyzer data."""
         with self._lock:
             self.analyzer = analyzer
             self.user_profile_analyzer = user_profile_analyzer
@@ -52,6 +57,7 @@ class AnalyzerState:
             self.ml_anomaly_report = ml_anomaly_report
 
     def snapshot(self) -> Dict[str, Any]:
+        """Return a thread-safe snapshot of the current state."""
         with self._lock:
             return {
                 'analyzer': self.analyzer,
@@ -63,10 +69,12 @@ class AnalyzerState:
             }
 
     def update_security_report(self, report: Dict[str, Any]) -> None:
+        """Update the AI security report in a thread-safe manner."""
         with self._lock:
             self.ai_security_report = report
 
     def update_ml_report(self, report: Dict[str, Any]) -> None:
+        """Update the ML anomaly report in a thread-safe manner."""
         with self._lock:
             self.ml_anomaly_report = report
 
@@ -75,10 +83,12 @@ state = AnalyzerState()
 
 
 def allowed_file(filename: str) -> bool:
+    """Check if the uploaded file has an allowed extension."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 def load_analyzer(csv_file: Optional[Union[str, Path]] = None) -> Tuple[bool, Optional[str]]:
+    """Load the analyzer, generate charts, profiles, and security reports."""
     csv_path = csv_file if csv_file is not None else UPLOAD_FOLDER / 'traffic.csv'
 
     if not csv_path.exists():
@@ -119,6 +129,7 @@ def load_analyzer(csv_file: Optional[Union[str, Path]] = None) -> Tuple[bool, Op
 
 @app.route('/')
 def index() -> str:
+    """Index page showing basic information and upload form."""
     snap = state.snapshot()
     total_traffic = {}
     if snap['analyzer']:
@@ -129,6 +140,7 @@ def index() -> str:
 
 @app.route('/dashboard')
 def dashboard() -> str:
+    """Dashboard page displaying all traffic charts."""
     snap = state.snapshot()
     analyzer = snap['analyzer']
     if not analyzer:
@@ -153,6 +165,7 @@ def dashboard() -> str:
 
 
 def _attack_map_stats(analyzer: Optional[TrafficAnalyzer], security_report: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Generate attack source tracking summary metrics."""
     if not analyzer or analyzer.df is None or len(analyzer.df) == 0:
         return {'sources': 0, 'top_target': '暂无', 'blocked': 0}
 
@@ -175,6 +188,7 @@ def _attack_map_stats(analyzer: Optional[TrafficAnalyzer], security_report: Opti
 
 @app.route('/upload', methods=['POST'])
 def upload() -> str:
+    """Handle CSV file upload and trigger analysis."""
     if 'file' not in request.files:
         flash('未选择文件，请重新上传。', 'danger')
         return redirect(url_for('index'))
@@ -209,6 +223,7 @@ def upload() -> str:
 
 @app.route('/api/stats')
 def api_stats() -> Response:
+    """API endpoint returning traffic statistics."""
     snap = state.snapshot()
     analyzer = snap['analyzer']
     if not analyzer:
@@ -224,6 +239,7 @@ def api_stats() -> Response:
 
 @app.route('/api/dashboard_data')
 def api_dashboard_data() -> Response:
+    """API endpoint returning complete dashboard data."""
     snap = state.snapshot()
     analyzer = snap['analyzer']
     if not analyzer:
@@ -247,6 +263,7 @@ def api_dashboard_data() -> Response:
 
 @app.route('/api/user_profiles')
 def api_user_profiles() -> Response:
+    """API endpoint returning user profile data."""
     snap = state.snapshot()
     if snap['user_profiles']:
         return jsonify(snap['user_profiles'])
@@ -264,6 +281,7 @@ def api_user_profiles() -> Response:
 
 @app.route('/api/ai_security')
 def api_ai_security() -> Response:
+    """API endpoint returning AI security analysis report."""
     snap = state.snapshot()
     analyzer = snap['analyzer']
     if not analyzer:
@@ -279,6 +297,7 @@ def api_ai_security() -> Response:
 
 @app.route('/api/ai_security/deepseek', methods=['POST'])
 def api_ai_security_deepseek() -> Response:
+    """API endpoint running DeepSeek review on security report."""
     snap = state.snapshot()
     analyzer = snap['analyzer']
     if not analyzer:
@@ -291,6 +310,7 @@ def api_ai_security_deepseek() -> Response:
 
 @app.route('/api/ml_anomaly')
 def api_ml_anomaly() -> Response:
+    """API endpoint returning ML anomaly detection results."""
     snap = state.snapshot()
     analyzer = snap['analyzer']
     if not analyzer:
@@ -305,6 +325,7 @@ def api_ml_anomaly() -> Response:
 
 @app.route('/api/ml_anomaly/refresh', methods=['POST'])
 def api_ml_anomaly_refresh() -> Response:
+    """API endpoint forcing a refresh of ML anomaly detection."""
     snap = state.snapshot()
     analyzer = snap['analyzer']
     if not analyzer:
@@ -316,6 +337,7 @@ def api_ml_anomaly_refresh() -> Response:
 
 @app.route('/realtime')
 def realtime_view() -> str:
+    """Real-time situational awareness dashboard page."""
     snap = state.snapshot()
     if not snap['analyzer']:
         flash('请先上传 CSV 流量数据再进入实时大屏。', 'warning')
@@ -325,6 +347,7 @@ def realtime_view() -> str:
 
 @app.route('/api/realtime/start', methods=['POST'])
 def api_realtime_start() -> Response:
+    """API endpoint to start traffic replay."""
     snap = state.snapshot()
     analyzer = snap['analyzer']
     if not analyzer:
@@ -339,11 +362,13 @@ def api_realtime_start() -> Response:
 
 @app.route('/api/realtime/stop', methods=['POST'])
 def api_realtime_stop() -> Response:
+    """API endpoint to stop traffic replay."""
     return jsonify(ReplayEngine.instance().stop())
 
 
 @app.route('/api/realtime/rate', methods=['POST'])
 def api_realtime_rate() -> Response:
+    """API endpoint to adjust replay rate on the fly."""
     payload = request.get_json(silent=True) or {}
     try:
         rate = float(payload.get('rate', request.args.get('rate', 5.0)))
@@ -354,11 +379,13 @@ def api_realtime_rate() -> Response:
 
 @app.route('/api/realtime/status')
 def api_realtime_status() -> Response:
+    """API endpoint returning replay status and metrics."""
     return jsonify(ReplayEngine.instance().status())
 
 
 @app.route('/api/realtime/stream')
 def api_realtime_stream() -> Response:
+    """SSE stream endpoint for real-time replay events."""
     stop_event = threading.Event()
 
     @stream_with_context
@@ -378,6 +405,7 @@ def api_realtime_stream() -> Response:
 
 @app.template_filter('format_bytes')
 def format_bytes(bytes_val: Union[int, float]) -> str:
+    """Jinja template filter to format byte counts as human-readable strings."""
     if bytes_val < 1024:
         return f"{bytes_val} B"
     elif bytes_val < 1024 ** 2:
@@ -390,6 +418,7 @@ def format_bytes(bytes_val: Union[int, float]) -> str:
 
 @app.errorhandler(413)
 def request_entity_too_large(error: Any) -> str:
+    """Handle file too large error (HTTP 413)."""
     flash(f'文件过大，单次上传不能超过 {MAX_CONTENT_LENGTH // (1024 * 1024)} MB。', 'danger')
     return redirect(url_for('index'))
 
