@@ -359,6 +359,22 @@ def api_analyze_batch() -> Response:
     return jsonify({'results': results, 'errors': errors, 'total': len(files), 'success': len(results)})
 
 
+@app.route('/api/data/info')
+def api_data_info() -> Response:
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': 'No data loaded.'}), 404
+    df = analyzer.df
+    return jsonify({
+        'row_count': len(df),
+        'columns': list(df.columns),
+        'date_range': {'start': str(df['timestamp'].min()), 'end': str(df['timestamp'].max())},
+        'unique_users': int(df['user'].nunique()),
+        'total_bytes': int(df['bytes'].sum()),
+    })
+
+
 @app.route('/api/status')
 def api_status() -> Response:
     import psutil
