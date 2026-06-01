@@ -115,3 +115,12 @@ a.nav-link:hover { border-color: rgba(56, 189, 248, 0.55); color: var(--cyan); }
     .topbar { align-items: flex-start; flex-direction: column; }
 }
 .loading { color: var(--muted); font-size: 14px; }
+
+@media print {
+    body { background: #fff !important; color: #000 !important; }
+    body::before, body::after { display: none !important; }
+    .topbar, .nav-actions, .btn, .toggle-btn, .nav-link, #shortcuts-modal { display: none !important; }
+    .shell { width: 100% !important; max-width: none !important; padding: 0 !important; }
+    .panel, .attack-map-card, .metric-card { break-inside: avoid; border: 1px solid #ccc !important; background: #fff !important; box-shadow: none !important; }
+    .chart-box canvas { max-width: 100% !important; }
+}
