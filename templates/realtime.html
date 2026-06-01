@@ -512,6 +512,23 @@
     // ---- alerts ----------------------------------------------------
     const alertList = el('alertList');
     let alertCleared = false;
+    function playAlertSound() {
+        try {
+            var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            var osc = audioCtx.createOscillator();
+            var gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(660, audioCtx.currentTime + 0.12);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.25);
+        } catch(e) {}
+    }
+
     function appendAlert(a) {
         if (!alertCleared) { alertList.innerHTML = ''; alertCleared = true; }
         const div = document.createElement('div');
@@ -523,6 +540,7 @@
         `;
         alertList.prepend(div);
         while (alertList.children.length > 50) alertList.removeChild(alertList.lastChild);
+        playAlertSound();
     }
 
     // ---- ML panel --------------------------------------------------
