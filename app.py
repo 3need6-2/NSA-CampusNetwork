@@ -623,6 +623,36 @@ def api_user_traffic(user_id: str) -> Response:
     })
 
 
+@app.route('/api/search')
+def api_search() -> Response:
+    """Search across users, IPs, and app categories."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    q = request.args.get('q', '').strip().lower()
+    if not q:
+        return jsonify({'error': 'missing_query', 'message': '请提供搜索参数 q。'}), 400
+
+    df = analyzer.df
+    mask = (
+        df['user'].str.lower().str.contains(q, na=False)
+        | df['src_ip'].str.contains(q, na=False)
+        | df['dst_ip'].str.contains(q, na=False)
+        | df['app_category'].str.lower().str.contains(q, na=False)
+    )
+    results = df[mask]
+
+    return jsonify({
+        'query': q,
+        'total_matches': len(results),
+        'total_bytes': int(results['bytes'].sum()) if len(results) > 0 else 0,
+        'unique_users': int(results['user'].nunique()) if len(results) > 0 else 0,
+        'sample': results.head(50).to_dict('records') if len(results) > 0 else [],
+    })
+
+
 @app.route('/api/traffic/timeline')
 def api_traffic_timeline() -> Response:
     """Return traffic timeline with optional from/to filtering."""
