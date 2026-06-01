@@ -308,6 +308,39 @@ def api_stats() -> Response:
     })
 
 
+@app.route('/api/stats/detailed')
+def api_stats_detailed() -> Response:
+    """Return detailed stats including per-user averages, median traffic, and percentiles."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    df = analyzer.df
+    total_bytes = int(df['bytes'].sum())
+    total_packets = len(df)
+    user_count = int(df['user'].nunique())
+    per_user_avg = round(total_bytes / user_count, 2) if user_count > 0 else 0
+    median_traffic = float(df['bytes'].median())
+    percentiles = {
+        'p25': float(df['bytes'].quantile(0.25)),
+        'p50': float(df['bytes'].quantile(0.50)),
+        'p75': float(df['bytes'].quantile(0.75)),
+        'p90': float(df['bytes'].quantile(0.90)),
+        'p95': float(df['bytes'].quantile(0.95)),
+        'p99': float(df['bytes'].quantile(0.99)),
+    }
+
+    return jsonify({
+        'total_bytes': total_bytes,
+        'total_packets': total_packets,
+        'unique_users': user_count,
+        'per_user_avg_bytes': per_user_avg,
+        'median_traffic_bytes': median_traffic,
+        'percentiles': percentiles,
+    })
+
+
 @app.route('/api/dashboard_data')
 def api_dashboard_data() -> Response:
     """API endpoint returning complete dashboard data."""
