@@ -1,4 +1,4 @@
-.PHONY: run dev install test lint format check clean docker-build docker-run help
+.PHONY: run dev install test lint format check clean docker-build docker-run backup clean-data help
 
 help:
 	@echo "NSA-CampusNetwork - Makefile"
@@ -14,6 +14,8 @@ help:
 	@echo "  make clean        Remove __pycache__ and .pyc files"
 	@echo "  make docker-build Build Docker image"
 	@echo "  make docker-run   Run Docker container (port 5001)"
+	@echo "  make backup       Create timestamped ZIP backup of data/"
+	@echo "  make clean-data   Remove cached analysis data files"
 
 install:
 	pip install -r requirements.txt
@@ -47,3 +49,10 @@ docker-build:
 
 docker-run:
 	docker run -p 5001:5001 nsa-campus-network
+
+backup:
+	python -m utils.backup
+
+clean-data:
+	rm -f data/traffic.csv data/user_profiles.json data/analysis.db
+	@echo "Cleaned cached analysis data."
