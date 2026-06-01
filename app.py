@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, Response, stream_with_context, make_response
 from werkzeug.utils import secure_filename
 from io import StringIO
+import pandas as pd
 from pathlib import Path
 import os
 import json
@@ -218,6 +219,14 @@ def upload() -> str:
         filename = secure_filename('traffic.csv')
         filepath = UPLOAD_FOLDER / filename
         file.save(str(filepath))
+
+        df_check = pd.read_csv(filepath)
+        required_columns = {'timestamp', 'bytes', 'user', 'src_ip', 'dst_ip', 'dst_port', 'app_category', 'protocol'}
+        missing = required_columns - set(df_check.columns)
+        if missing:
+            flash(f'CSV 文件缺少必需列: {", ".join(sorted(missing))}', 'danger')
+            filepath.unlink(missing_ok=True)
+            return redirect(url_for('index'))
 
         ok, err = load_analyzer(filepath)
         if ok:
