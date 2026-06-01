@@ -27,15 +27,15 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-SUSPICIOUS_PORTS = {21, 22, 23, 25, 53, 135, 139, 445, 1433, 1521,
-                    3306, 3389, 5432, 5900, 6379, 9200, 27017}
-
-WINDOW_SIZE = 200            # 大屏右侧"事件流"保留的最近事件数
-TRAFFIC_BUCKETS = 30         # 实时折线图保留的桶数
-BUCKET_SECONDS = 5           # 每个桶 5 秒，30 桶覆盖最近 2.5 分钟
-PORT_SCAN_THRESHOLD = 6      # 同一源 IP 在 30 秒内访问的不同端口数
-PORT_SCAN_WINDOW = 30        # 秒
-LARGE_FLOW_BYTES = 50_000    # 单条流量超过此值视为大流量事件
+from utils.constants import (
+    SUSPICIOUS_PORTS,
+    REALTIME_WINDOW_SIZE as WINDOW_SIZE,
+    REALTIME_TRAFFIC_BUCKETS as TRAFFIC_BUCKETS,
+    REALTIME_BUCKET_SECONDS as BUCKET_SECONDS,
+    REALTIME_PORT_SCAN_THRESHOLD as PORT_SCAN_THRESHOLD,
+    REALTIME_PORT_SCAN_WINDOW as PORT_SCAN_WINDOW,
+    REALTIME_LARGE_FLOW_BYTES as LARGE_FLOW_BYTES,
+)
 
 
 @dataclass
