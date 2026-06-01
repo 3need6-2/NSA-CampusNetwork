@@ -553,6 +553,29 @@ def api_user_traffic(user_id: str) -> Response:
     })
 
 
+@app.route('/api/traffic/timeline')
+def api_traffic_timeline() -> Response:
+    """Return traffic timeline with optional from/to filtering."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    df = analyzer.df.copy()
+    from_str = request.args.get('from')
+    to_str = request.args.get('to')
+
+    if from_str:
+        df = df[df['timestamp'] >= from_str]
+    if to_str:
+        df = df[df['timestamp'] <= to_str]
+
+    trend = df.set_index('timestamp').resample('h')['bytes'].sum()
+    timeline = [{'time': str(ts), 'bytes': int(b)} for ts, b in trend.items()]
+
+    return jsonify({'timeline': timeline, 'count': len(timeline), 'from': from_str, 'to': to_str})
+
+
 @app.template_filter('format_bytes')
 def format_bytes(bytes_val: Union[int, float]) -> str:
     """Jinja template filter to format byte counts as human-readable strings."""
