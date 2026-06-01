@@ -521,6 +521,38 @@ def api_user_profile(user_id: str) -> Response:
     return jsonify({'user': user_id, 'profile': profile})
 
 
+@app.route('/api/users/<user_id>/traffic')
+def api_user_traffic(user_id: str) -> Response:
+    """Return traffic data for a specific user."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    user_data = analyzer.df[analyzer.df['user'] == user_id]
+    if len(user_data) == 0:
+        return jsonify({'error': 'not_found', 'message': f'用户 {user_id} 不存在。'}), 404
+
+    hourly = user_data.groupby('hour').agg({'bytes': 'sum', 'timestamp': 'count'}).reset_index()
+    active_hours = [
+        {'hour': int(r['hour']), 'bytes': int(r['bytes']), 'count': int(r['timestamp'])}
+        for _, r in hourly.iterrows()
+    ]
+
+    return jsonify({
+        'user': user_id,
+        'total_bytes': int(user_data['bytes'].sum()),
+        'packet_count': len(user_data),
+        'unique_destinations': int(user_data['dst_ip'].nunique()),
+        'app_distribution': analyzer.get_user_app_distribution(user_id),
+        'active_hours': active_hours,
+        'time_range': {
+            'start': str(user_data['timestamp'].min()),
+            'end': str(user_data['timestamp'].max()),
+        },
+    })
+
+
 @app.template_filter('format_bytes')
 def format_bytes(bytes_val: Union[int, float]) -> str:
     """Jinja template filter to format byte counts as human-readable strings."""
