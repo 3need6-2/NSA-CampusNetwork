@@ -521,14 +521,34 @@
     }
 
     // ---- KPI / status ---------------------------------------------
+    function animateKPI(elId, targetVal, suffix) {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        const parsed = parseFloat(String(targetVal).replace(/[^0-9.-]/g, '')) || 0;
+        const duration = 600;
+        const increments = 20;
+        const step = parsed / increments;
+        let current = 0;
+        function tick() {
+            current += step;
+            if (current >= parsed) {
+                el.textContent = suffix ? parsed + suffix : parsed;
+                return;
+            }
+            el.textContent = suffix ? Math.round(current) + suffix : Math.round(current);
+            requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+    }
+
     function applyMetrics(s) {
         if (!s) return;
         const m = s.metrics || {};
-        el('kpiEvents').textContent = m.sent_events || 0;
+        animateKPI('kpiEvents', m.sent_events || 0, '');
         el('kpiBytes').textContent = fmtBytes(m.total_bytes || 0);
-        el('kpiUsers').textContent = m.unique_users || 0;
-        el('kpiIps').textContent = m.unique_src_ips || 0;
-        el('kpiAlerts').textContent = m.alerts_triggered || 0;
+        animateKPI('kpiUsers', m.unique_users || 0, '');
+        animateKPI('kpiIps', m.unique_src_ips || 0, '');
+        animateKPI('kpiAlerts', m.alerts_triggered || 0, '');
         applyBuckets(s.traffic_buckets || []);
         const pill = el('statusPill');
         pill.classList.remove('running', 'stopped');
@@ -607,10 +627,16 @@
         const div = document.createElement('div');
         div.className = `alert-item ${a.level}`;
         div.innerHTML = `
-            <div class="alert-title" data-level="${a.level}">${a.title}</div>
-            <div class="alert-meta">${fmtTime(a.ts)} · ${a.entity}</div>
-            <div class="alert-detail">${a.detail}</div>
-        `;
+                    <div class="alert-title" data-level="${a.level}">${a.title}</div>
+                    <div class="alert-meta">${fmtTime(a.ts)} · ${a.entity}</div>
+                    <div class="alert-detail">${a.detail}</div>
+                    <button class="btn alert-ack-btn" type="button" style="margin-top:8px;min-height:28px;padding:0 10px;font-size:11px;" data-id="${a.ts}-${Math.random().toString(36).slice(2,6)}">确认</button>
+                `;
+        div.querySelector('.alert-ack-btn').addEventListener('click', function() {
+            div.style.opacity = '0.3';
+            div.style.pointerEvents = 'none';
+            this.textContent = '已确认';
+        });
         alertList.prepend(div);
         while (alertList.children.length > 50) alertList.removeChild(alertList.lastChild);
         playAlertSound();
