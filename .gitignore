@@ -26,3 +26,9 @@ Thumbs.db
 *.swp
 *.swo
 *.bak
+*.zip
+backups/
+logs/
+reports/
+scripts/__pycache__/
+*.html
