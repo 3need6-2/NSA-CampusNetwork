@@ -33,8 +33,8 @@ class DeepSeekConfig:
 class DeepSeekSecurityReviewer:
     """Use DeepSeek for defensive review of summarized traffic findings."""
 
-    def __init__(self, config: Optional[DeepSeekConfig] = None):
-        self.config = config or DeepSeekConfig.from_env()
+    def __init__(self, config: Optional[DeepSeekConfig] = None) -> None:
+        self.config: DeepSeekConfig = config or DeepSeekConfig.from_env()
 
     def is_configured(self) -> bool:
         return bool(self.config.api_key)
