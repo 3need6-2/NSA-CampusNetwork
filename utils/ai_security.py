@@ -182,6 +182,10 @@ class AISecurityAnalyzer:
         self._detect_volume_anomalies()
         self._detect_unusual_hour_activity()
         self._detect_ai_assisted_attack_indicators()
+        self._detect_dns_tunneling()
+        self._detect_data_exfiltration()
+        self._detect_brute_force()
+        self._detect_beaconing()
         self._build_blocklist()
 
         summary = self._build_summary()
@@ -408,6 +412,167 @@ class AISecurityAnalyzer:
             suggested_action=suggested_action,
             block_target={"type": "src_ip", "value": src_ip},
         )
+
+    def _detect_dns_tunneling(self) -> None:
+        """Detect potential DNS tunneling behavior."""
+        required = {"user", "dst_port", "bytes", "timestamp"}
+        if not required.issubset(self.df.columns):
+            return
+
+        dns_df = self.df[self.df["dst_port"] == 53]
+        if dns_df.empty:
+            return
+
+        grouped = dns_df.groupby("user").agg(
+            dns_query_count=("dst_port", "count"),
+            dns_total_bytes=("bytes", "sum"),
+            dns_avg_bytes=("bytes", "mean"),
+        )
+
+        for user, row in grouped.iterrows():
+            query_count = int(row["dns_query_count"])
+            total_bytes = int(row["dns_total_bytes"])
+            avg_bytes = float(row["dns_avg_bytes"])
+
+            if query_count > 100 and avg_bytes > 100:
+                score = min(95, 50 + min(query_count // 10, 30) + min(int(avg_bytes // 10), 15))
+                self._add_alert(
+                    alert_type="dns_tunneling",
+                    severity=self._severity(score),
+                    score=score,
+                    title="疑似 DNS 隧道攻击",
+                    entity=str(user),
+                    evidence=[
+                        f"DNS 查询次数: {query_count}",
+                        f"DNS 总流量: {self._format_bytes(total_bytes)}",
+                        f"平均 DNS 包大小: {avg_bytes:.1f} B",
+                    ],
+                    suggested_action="检查该用户 DNS 查询内容，确认是否存在数据隧道行为；必要时阻断非授权 DNS 外联。",
+                    block_target={"type": "user", "value": str(user)},
+                )
+
+    def _detect_data_exfiltration(self) -> None:
+        """Detect potential data exfiltration to unusual ports."""
+        unusual_ports = {21, 22, 23, 25, 53, 80, 443, 8080, 8443, 1433, 3306, 3389, 5900, 6379, 27017}
+        required = {"user", "dst_port", "bytes", "dst_ip"}
+        if not required.issubset(self.df.columns):
+            return
+
+        exfil_df = self.df[self.df["dst_port"].isin(unusual_ports)]
+        if exfil_df.empty:
+            return
+
+        grouped = exfil_df.groupby(["user", "dst_port"]).agg(
+            total_outbound=("bytes", "sum"),
+            unique_targets=("dst_ip", "nunique"),
+            packet_count=("bytes", "count"),
+        )
+
+        for (user, port), row in grouped.iterrows():
+            total_outbound = int(row["total_outbound"])
+            unique_targets = int(row["unique_targets"])
+
+            if total_outbound >= 10 * 1024 * 1024:
+                score = min(92, 45 + min(total_outbound // (5 * 1024 * 1024), 35) + unique_targets * 3)
+                self._add_alert(
+                    alert_type="data_exfiltration",
+                    severity=self._severity(score),
+                    score=score,
+                    title=f"疑似数据外泄至非常用端口 {port}",
+                    entity=str(user),
+                    evidence=[
+                        f"目标端口: {port}",
+                        f"总出站流量: {self._format_bytes(total_outbound)}",
+                        f"目标 IP 数: {unique_targets}",
+                    ],
+                    suggested_action="审查该用户目标 IP 及传输内容，确认是否存在数据外泄行为。",
+                    block_target={"type": "user", "value": str(user)},
+                )
+
+    def _detect_brute_force(self) -> None:
+        """Detect potential brute force attacks to the same port on many IPs."""
+        required = {"user", "src_ip", "dst_ip", "dst_port", "timestamp"}
+        if not required.issubset(self.df.columns):
+            return
+
+        grouped = self.df.groupby(["user", "src_ip", "dst_port"]).agg(
+            unique_targets=("dst_ip", "nunique"),
+            total_attempts=("dst_ip", "count"),
+            time_span=("timestamp", lambda x: (x.max() - x.min()).total_seconds()),
+        )
+
+        for (user, src_ip, port), row in grouped.iterrows():
+            unique_targets = int(row["unique_targets"])
+            total_attempts = int(row["total_attempts"])
+            time_span = float(row["time_span"])
+
+            if unique_targets >= 5 and total_attempts >= 10:
+                rate = total_attempts / max(time_span, 1)
+                score = min(88, 40 + min(unique_targets * 3, 25) + min(int(rate * 5), 15))
+                self._add_alert(
+                    alert_type="brute_force",
+                    severity=self._severity(score),
+                    score=score,
+                    title=f"疑似暴力破解攻击 - 端口 {port}",
+                    entity=f"{user} / {src_ip}",
+                    evidence=[
+                        f"目标端口: {port}",
+                        f"尝试目标数: {unique_targets}",
+                        f"总尝试次数: {total_attempts}",
+                        f"平均速率: {rate:.1f} 次/秒",
+                    ],
+                    suggested_action="建议临时阻断该源 IP 对该端口的访问，并检查目标系统日志。",
+                    block_target={"type": "src_ip", "value": src_ip},
+                )
+
+    def _detect_beaconing(self) -> None:
+        """Detect regular periodic beaconing to the same IP."""
+        required = {"user", "src_ip", "dst_ip", "timestamp"}
+        if not required.issubset(self.df.columns):
+            return
+
+        grouped = self.df.groupby(["user", "src_ip", "dst_ip"]).agg(
+            connection_times=("timestamp", list),
+            total_connections=("timestamp", "count"),
+        )
+
+        for (user, src_ip, dst_ip), row in grouped.iterrows():
+            total_connections = int(row["total_connections"])
+            timestamps = sorted(row["connection_times"])
+
+            if total_connections < 5 or len(timestamps) < 5:
+                continue
+
+            intervals = []
+            for i in range(1, len(timestamps)):
+                dt = (timestamps[i] - timestamps[i - 1]).total_seconds()
+                if dt > 0:
+                    intervals.append(dt)
+
+            if len(intervals) < 4:
+                continue
+
+            import statistics
+            mean_interval = statistics.mean(intervals)
+            stdev_interval = statistics.stdev(intervals) if len(intervals) > 1 else 0
+
+            if mean_interval >= 10 and stdev_interval < mean_interval * 0.3:
+                score = min(85, 40 + min(int(30 / max(mean_interval, 1)), 20) + max(0, 25 - int(stdev_interval)))
+                self._add_alert(
+                    alert_type="beaconing",
+                    severity=self._severity(score),
+                    score=score,
+                    title="疑似 C2 信标通信",
+                    entity=f"{user} / {src_ip}",
+                    evidence=[
+                        f"目标 IP: {dst_ip}",
+                        f"连接次数: {total_connections}",
+                        f"平均间隔: {mean_interval:.1f} 秒",
+                        f"间隔标准差: {stdev_interval:.1f} 秒",
+                    ],
+                    suggested_action="建议检查该目标 IP 信誉，确认是否为已知 C2 服务器；必要时阻断通信。",
+                    block_target={"type": "src_ip", "value": src_ip},
+                )
 
     def _build_blocklist(self) -> None:
         """Build a prioritized blocklist from high-scoring alerts."""
