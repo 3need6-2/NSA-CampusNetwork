@@ -787,6 +787,51 @@ def api_user_traffic(user_id: str) -> Response:
     })
 
 
+@app.route('/api/user/<user_id>/full-report')
+def api_user_full_report(user_id: str) -> Response:
+    """Return all available data for a user in one response."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    profile_analyzer = snap['user_profile_analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    user_data = analyzer.df[analyzer.df['user'] == user_id]
+    if len(user_data) == 0:
+        return jsonify({'error': 'not_found', 'message': f'用户 {user_id} 不存在。'}), 404
+
+    if profile_analyzer is None:
+        profile_analyzer = UserProfileAnalyzer(analyzer.csv_path)
+
+    hourly = user_data.groupby('hour').agg({'bytes': 'sum', 'timestamp': 'count'}).reset_index()
+    active_hours = [
+        {'hour': int(r['hour']), 'bytes': int(r['bytes']), 'count': int(r['timestamp'])}
+        for _, r in hourly.iterrows()
+    ]
+
+    return jsonify({
+        'user': user_id,
+        'total_bytes': int(user_data['bytes'].sum()),
+        'packet_count': len(user_data),
+        'unique_destinations': int(user_data['dst_ip'].nunique()),
+        'app_distribution': analyzer.get_user_app_distribution(user_id),
+        'active_hours': active_hours,
+        'time_range': {
+            'start': str(user_data['timestamp'].min()),
+            'end': str(user_data['timestamp'].max()),
+        },
+        'traffic_ranking': analyzer.get_user_traffic_ranking(top_n=50)[:10],
+        'protocol_distribution': analyzer.get_protocol_distribution(),
+        'app_category': analyzer.get_app_category_traffic(),
+        'encryption_ratio': profile_analyzer.get_encryption_ratio(user_id),
+        'connection_frequency': profile_analyzer.get_connection_frequency(user_id),
+        'peak_bandwidth': profile_analyzer.get_peak_bandwidth(user_id),
+        'protocol_diversity': profile_analyzer.get_protocol_diversity(user_id),
+        'download_upload_ratio': profile_analyzer.get_download_upload_ratio(user_id),
+        'profile': snap['user_profiles'].get(user_id, {}),
+    })
+
+
 @app.route('/api/search')
 def api_search() -> Response:
     """Search across users, IPs, and app categories."""
