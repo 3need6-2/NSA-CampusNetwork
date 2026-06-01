@@ -542,6 +542,16 @@ def api_realtime_status() -> Response:
     return jsonify(ReplayEngine.instance().status())
 
 
+@app.route('/api/alerts/history')
+def api_alerts_history() -> Response:
+    """Return all alerts with timestamps from the realtime engine's alert history."""
+    alerts = ReplayEngine.instance().get_alert_history()
+    return jsonify({
+        'alerts': alerts,
+        'count': len(alerts),
+    })
+
+
 @app.route('/api/realtime/stream')
 def api_realtime_stream() -> Response:
     """SSE stream endpoint for real-time replay events."""
