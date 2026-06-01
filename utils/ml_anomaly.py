@@ -34,9 +34,9 @@ class AnomalyConfig:
 class MLAnomalyDetector:
     """基于 IsolationForest 的用户级异常检测。"""
 
-    def __init__(self, df: Optional[pd.DataFrame], config: Optional[AnomalyConfig] = None):
-        self.df = df.copy() if df is not None else pd.DataFrame()
-        self.config = config or AnomalyConfig()
+    def __init__(self, df: Optional[pd.DataFrame], config: Optional[AnomalyConfig] = None) -> None:
+        self.df: pd.DataFrame = df.copy() if df is not None else pd.DataFrame()
+        self.config: AnomalyConfig = config or AnomalyConfig()
 
     def detect(self) -> Dict[str, Any]:
         if self.df.empty or "user" not in self.df.columns:
