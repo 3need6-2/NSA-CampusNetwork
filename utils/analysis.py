@@ -143,6 +143,18 @@ class TrafficAnalyzer:
         daily['date'] = daily['date'].astype(str)
         return daily.to_dict('records')
 
+    def get_traffic_growth(self) -> float:
+        if self.df is None or len(self.df) == 0:
+            return 0.0
+        daily = self.df.groupby('date')['bytes'].sum().sort_index()
+        if len(daily) < 2:
+            return 0.0
+        latest = daily.iloc[-1]
+        previous = daily.iloc[-2]
+        if previous == 0:
+            return 0.0
+        return round((latest - previous) / previous * 100, 2)
+
     def get_concurrent_users(self) -> List[Dict[str, Any]]:
         """Return number of active users per hour bucket."""
         if self.df is None or len(self.df) == 0:
