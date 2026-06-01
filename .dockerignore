@@ -1,0 +1,15 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+.env
+.vscode
+.idea
+.DS_Store
+*.md
+commit_log.txt
+DELIVERY_CHECKLIST.md
+PROJECT_SUMMARY.md
+STARTUP_GUIDE.py
+copilot_user_profile_prompt.py
+check_project.py
