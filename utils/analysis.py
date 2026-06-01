@@ -155,6 +155,11 @@ class TrafficAnalyzer:
             return 0.0
         return round((latest - previous) / previous * 100, 2)
 
+    def get_user_count(self) -> int:
+        if self.df is None or len(self.df) == 0:
+            return 0
+        return int(self.df['user'].nunique())
+
     def get_concurrent_users(self) -> List[Dict[str, Any]]:
         """Return number of active users per hour bucket."""
         if self.df is None or len(self.df) == 0:
