@@ -1,0 +1,39 @@
+# NSA-CampusNetwork Configuration
+# This file overrides defaults from .env and app.py.
+
+server:
+  # Host address to bind the Flask server to
+  host: "0.0.0.0"
+
+  # Port to listen on
+  port: 5001
+
+  # Enable Flask debug mode (auto-reload, verbose errors)
+  debug: false
+
+  # Secret key for session signing (override via FLASK_SECRET_KEY env var)
+  secret_key: "nsa-campus-network-dev-key"
+
+upload:
+  # Comma-separated list of allowed file extensions
+  allowed_extensions: "csv"
+
+  # Maximum upload file size in megabytes
+  max_size_mb: 50
+
+deepseek:
+  # DeepSeek API endpoint (override via DEEPSEEK_API_URL env var)
+  api_url: "https://api.deepseek.com/v1/chat/completions"
+
+  # DeepSeek model name (override via DEEPSEEK_MODEL env var)
+  model: "deepseek-chat"
+
+  # API timeout in seconds
+  timeout: 20
+
+logging:
+  # Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: "INFO"
+
+  # Log format string
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
