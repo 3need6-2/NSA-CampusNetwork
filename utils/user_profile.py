@@ -1,3 +1,5 @@
+"""User profile analysis utilities for campus network data."""
+
 import pandas as pd
 import json
 from pathlib import Path
@@ -9,7 +11,7 @@ from utils.constants import NORMALIZED_CATEGORIES, USER_PROFILE_SUSPICIOUS_PORTS
 
 
 def _match_big_category(raw_category):
-    """把原始 app_category 标准化为大类（game/video/...），匹配不到返回 None。"""
+    """Normalize raw app_category to a broad category, or return None if unmatched."""
     if not isinstance(raw_category, str):
         return None
     name = raw_category.lower()
@@ -20,10 +22,10 @@ def _match_big_category(raw_category):
 
 
 class UserProfileAnalyzer:
-    """用户画像分析类"""
+    """User profile analysis class."""
 
     def __init__(self, csv_path):
-        """初始化分析器"""
+        """Initialize the analyzer."""
         self.csv_path = csv_path
         self.df = None
         self.user_profiles = {}
@@ -31,7 +33,7 @@ class UserProfileAnalyzer:
         self.load_data()
     
     def load_data(self):
-        """加载 CSV 文件"""
+        """Load the CSV file into a DataFrame."""
         try:
             self.df = pd.read_csv(self.csv_path)
             self.df['timestamp'] = pd.to_datetime(self.df['timestamp'])
@@ -43,13 +45,13 @@ class UserProfileAnalyzer:
             return False
     
     def get_user_list(self):
-        """获取所有用户"""
+        """Return a list of all users."""
         if self.df is None or len(self.df) == 0:
             return []
         return self.df['user'].unique().tolist()
     
     def get_app_category_pct(self, user_id):
-        """获取用户应用类别占比（按归一化后的大类聚合）"""
+        """Return user application category percentages aggregated by broad category."""
         user_data = self.df[self.df['user'] == user_id]
         if len(user_data) == 0:
             return {}
@@ -73,7 +75,7 @@ class UserProfileAnalyzer:
         return category_pct
     
     def get_active_hours(self, user_id):
-        """获取用户每小时活跃度"""
+        """Return hourly activity data for a user."""
         user_data = self.df[self.df['user'] == user_id]
         if len(user_data) == 0:
             return {}
@@ -93,7 +95,7 @@ class UserProfileAnalyzer:
         return active_hours
     
     def get_protocol_ratio(self, user_id):
-        """获取用户协议占比"""
+        """Return protocol ratio for a user."""
         user_data = self.df[self.df['user'] == user_id]
         if len(user_data) == 0:
             return {}
@@ -108,7 +110,7 @@ class UserProfileAnalyzer:
         return protocol_ratio
     
     def get_port_stats(self, user_id):
-        """获取用户端口行为统计"""
+        """Return port behavior statistics for a user."""
         user_data = self.df[self.df['user'] == user_id]
         if len(user_data) == 0:
             return {}
@@ -123,7 +125,7 @@ class UserProfileAnalyzer:
         return port_stats
     
     def get_dns_stats(self, user_id):
-        """获取用户 DNS 行为统计"""
+        """Return DNS behavior statistics for a user."""
         user_data = self.df[self.df['user'] == user_id]
         if len(user_data) == 0:
             return {"dns_queries": 0, "dns_bytes": 0}
@@ -136,7 +138,7 @@ class UserProfileAnalyzer:
         }
     
     def get_daily_bytes(self, user_id):
-        """获取用户每日总流量"""
+        """Return daily total traffic for a user."""
         user_data = self.df[self.df['user'] == user_id]
         if len(user_data) == 0:
             return {}
@@ -150,7 +152,7 @@ class UserProfileAnalyzer:
         return daily_bytes
     
     def generate_tags(self, user_id):
-        """根据用户特征生成标签"""
+        """Generate tags based on user behavior characteristics."""
         tags = []
         
         # 获取用户数据
@@ -221,7 +223,7 @@ class UserProfileAnalyzer:
         return list(set(tags))  # 去重
     
     def _get_variance_threshold(self):
-        """计算所有用户每小时流量方差的中位数，作为规律/波动判定阈值（懒加载缓存）"""
+        """Compute median hourly traffic variance across users as a regularity threshold."""
         if self._global_variance_threshold is not None:
             return self._global_variance_threshold
         if self.df is None or len(self.df) == 0:
@@ -241,7 +243,7 @@ class UserProfileAnalyzer:
         return self._global_variance_threshold
 
     def analyze_all_users(self):
-        """分析所有用户生成完整画像"""
+        """Analyze all users and generate complete profiles."""
         users = self.get_user_list()
         
         for user_id in users:
@@ -258,7 +260,7 @@ class UserProfileAnalyzer:
         return self.user_profiles
     
     def save_profiles(self, output_path):
-        """保存用户画像为 JSON 文件"""
+        """Save user profiles to a JSON file."""
         try:
             with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(self.user_profiles, f, ensure_ascii=False, indent=2)
@@ -269,7 +271,7 @@ class UserProfileAnalyzer:
             return False
     
     def load_profiles(self, input_path):
-        """从 JSON 文件加载用户画像"""
+        """Load user profiles from a JSON file."""
         try:
             with open(input_path, 'r', encoding='utf-8') as f:
                 self.user_profiles = json.load(f)
@@ -281,7 +283,7 @@ class UserProfileAnalyzer:
 
 
 def generate_user_profiles(csv_path, output_path=None):
-    """生成用户画像（便利函数）"""
+    """Generate user profiles as a convenience function."""
     analyzer = UserProfileAnalyzer(csv_path)
     analyzer.analyze_all_users()
     
