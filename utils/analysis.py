@@ -185,6 +185,14 @@ class TrafficAnalyzer:
             "median": float(self.df['bytes'].median()),
         }
 
+    def get_hourly_user_activity(self) -> List[Dict[str, Any]]:
+        if self.df is None or len(self.df) == 0:
+            return []
+        hourly_users = self.df.groupby('hour')['user'].nunique().reset_index()
+        hourly_users.columns = ['hour', 'active_users']
+        hourly_users['hour'] = hourly_users['hour'].astype(str).str.zfill(2) + ':00'
+        return hourly_users.to_dict('records')
+
     def get_concurrent_users(self) -> List[Dict[str, Any]]:
         """Return number of active users per hour bucket."""
         if self.df is None or len(self.df) == 0:
