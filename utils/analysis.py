@@ -260,6 +260,46 @@ class TrafficAnalyzer:
         hourly_users['hour'] = hourly_users['hour'].astype(str).str.zfill(2) + ':00'
         return hourly_users.to_dict('records')
 
+    def get_peak_traffic_hour(self) -> Optional[int]:
+        """Return the hour with the highest total traffic."""
+        if self.df is None or len(self.df) == 0:
+            return None
+        hourly = self.df.groupby('hour')['bytes'].sum()
+        if len(hourly) == 0:
+            return None
+        return int(hourly.idxmax())
+
+    def get_idle_periods(self, threshold_bytes: int = 100) -> List[int]:
+        """Return hours with zero or minimal traffic (below threshold)."""
+        if self.df is None or len(self.df) == 0:
+            return []
+        hourly = self.df.groupby('hour')['bytes'].sum()
+        idle = [int(h) for h in range(24) if h not in hourly.index or hourly[h] <= threshold_bytes]
+        return idle
+
+    def get_user_agent_analysis(self) -> Dict[str, Any]:
+        """Stub: return mock user agent breakdown."""
+        return {
+            "chrome": 45.0,
+            "firefox": 20.0,
+            "safari": 15.0,
+            "edge": 10.0,
+            "other": 10.0,
+        }
+
+    @staticmethod
+    def get_application_port_mapping() -> Dict[str, List[int]]:
+        """Return a mapping of app categories to commonly used ports."""
+        return {
+            "web": [80, 443, 8080, 8443],
+            "dns": [53],
+            "email": [25, 110, 143, 587, 993, 995],
+            "remote_access": [22, 23, 3389, 5900],
+            "database": [3306, 5432, 1521, 1433, 6379, 27017],
+            "file_transfer": [21, 445, 2049],
+            "chat": [5222, 8448],
+            "streaming": [1935, 554],
+        }
 
 def generate_traffic_trend_chart(analyzer: TrafficAnalyzer) -> str:
     """Generate a traffic trend line chart as HTML."""
