@@ -403,6 +403,12 @@ class TrafficAnalyzer:
         }
 
     @staticmethod
+    def get_user_device_count(self) -> Dict[str, int]:
+        if self.df is None or len(self.df) == 0:
+            return {}
+        device_counts = self.df.groupby('user')['src_ip'].nunique().to_dict()
+        return {str(k): int(v) for k, v in device_counts.items()}
+
     def get_top_apps(self, top_n: int = 5) -> List[Dict[str, Any]]:
         if self.df is None or len(self.df) == 0:
             return []
