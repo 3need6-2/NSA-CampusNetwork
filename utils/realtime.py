@@ -65,17 +65,17 @@ class ReplayEngine:
     """线程安全的流量回放引擎，单例。"""
 
     _instance: Optional["ReplayEngine"] = None
-    _instance_lock = threading.Lock()
+    _instance_lock: threading.Lock = threading.Lock()
 
-    def __init__(self):
-        self._lock = threading.RLock()
+    def __init__(self) -> None:
+        self._lock: threading.RLock = threading.RLock()
         self._thread: Optional[threading.Thread] = None
-        self._stop_flag = threading.Event()
+        self._stop_flag: threading.Event = threading.Event()
         self._subscribers: List[queue.Queue] = []
         self._df: Optional[pd.DataFrame] = None
-        self._rate: float = 5.0          # 每秒事件数
+        self._rate: float = 5.0
         self._loop: bool = True
-        self._metrics = ReplayMetrics()
+        self._metrics: ReplayMetrics = ReplayMetrics()
         self._recent_events: Deque[Dict[str, Any]] = deque(maxlen=WINDOW_SIZE)
         self._traffic_buckets: Deque[Dict[str, Any]] = deque(maxlen=TRAFFIC_BUCKETS)
         self._port_seen: Dict[str, Deque] = defaultdict(lambda: deque(maxlen=64))
@@ -233,7 +233,6 @@ class ReplayEngine:
         if not self._traffic_buckets:
             self._traffic_buckets.append({"ts": bucket_ts, "bytes": 0, "events": 0})
         last_ts = self._traffic_buckets[-1]["ts"]
-        # 当前事件落在新桶里，先把中间空缺的桶补 0，避免曲线变成稀疏直线
         if bucket_ts > last_ts:
             next_ts = last_ts + BUCKET_SECONDS
             while next_ts < bucket_ts:
