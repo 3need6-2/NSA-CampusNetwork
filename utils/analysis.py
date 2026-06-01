@@ -132,6 +132,18 @@ class TrafficAnalyzer:
             "bytes_per_second": round(float(total_bytes) / time_span, 2),
             "total_seconds": round(time_span, 2)
         }
+
+    def get_session_duration_estimate(self) -> Dict[str, Any]:
+        """Estimate session lengths per user."""
+        if self.df is None or len(self.df) == 0:
+            return {"avg_seconds": 0.0, "min_seconds": 0.0, "max_seconds": 0.0, "total_sessions": 0}
+        user_durations = self.df.groupby('user')['timestamp'].agg(lambda x: (x.max() - x.min()).total_seconds())
+        return {
+            "avg_seconds": round(float(user_durations.mean()), 2),
+            "min_seconds": round(float(user_durations.min()), 2),
+            "max_seconds": round(float(user_durations.max()), 2),
+            "total_sessions": len(user_durations)
+        }
     
     def get_app_category_traffic(self) -> List[Dict[str, Any]]:
         """Return traffic distribution by application category."""
