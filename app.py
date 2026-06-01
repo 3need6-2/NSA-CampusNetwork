@@ -520,6 +520,18 @@ def format_bytes(bytes_val: Union[int, float]) -> str:
         return f"{bytes_val / (1024 ** 3):.2f} GB"
 
 
+@app.errorhandler(404)
+def not_found(error: Any) -> Tuple[str, int]:
+    """Handle 404 Not Found errors."""
+    return render_template('404.html'), 404
+
+
+@app.errorhandler(500)
+def internal_error(error: Any) -> Tuple[str, int]:
+    """Handle 500 Internal Server errors."""
+    return render_template('500.html'), 500
+
+
 @app.errorhandler(413)
 def request_entity_too_large(error: Any) -> str:
     """Handle file too large error (HTTP 413)."""
