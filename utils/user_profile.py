@@ -188,6 +188,20 @@ class UserProfileAnalyzer:
         
         user_data = self.df[self.df['user'] == user_id]
         total_bytes = user_data['bytes'].sum()
+        total_packets = len(user_data)
+        avg_bytes_per_packet = total_bytes / total_packets if total_packets > 0 else 0
+
+        vpn_data = user_data[(user_data['dst_port'] == 443) & (user_data['protocol'] == 'UDP')]
+        vpn_bytes = vpn_data['bytes'].sum()
+        vpn_ratio = vpn_bytes / total_bytes * 100 if total_bytes > 0 else 0
+        if vpn_ratio > 20:
+            tags.append('VPN用户')
+
+        if avg_bytes_per_packet > 1000:
+            tags.append('下载大户')
+
+        if total_bytes < 10000:
+            tags.append('轻度用户')
 
         stats = self._get_global_traffic_stats()
         if stats['std'] > 0 and total_bytes > stats['mean'] + 2 * stats['std']:
@@ -250,6 +264,24 @@ class UserProfileAnalyzer:
 
         return list(set(tags))
     
+    def get_user_summary(self, user_id: str) -> str:
+        """Return a short text summary of a user's behavior based on tags and stats."""
+        tags = self.generate_tags(user_id)
+        user_data = self.df[self.df['user'] == user_id]
+        if len(user_data) == 0:
+            return f"用户 {user_id}: 无数据"
+        total_bytes = int(user_data['bytes'].sum())
+        total_packets = len(user_data)
+        app_pct = self.get_app_category_pct(user_id)
+        top_app = max(app_pct, key=app_pct.get) if app_pct else "未知"
+        tag_str = ", ".join(tags) if tags else "无标签"
+        return (
+            f"用户 {user_id}: 总流量 {total_bytes} 字节, "
+            f"总包数 {total_packets}, "
+            f"主要应用 {top_app}, "
+            f"标签: {tag_str}"
+        )
+
     def _get_variance_threshold(self) -> float:
         """Compute median hourly traffic variance across users as a regularity threshold."""
         if self._global_variance_threshold is not None:
