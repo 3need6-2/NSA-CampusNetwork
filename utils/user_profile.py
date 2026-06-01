@@ -139,6 +139,20 @@ class UserProfileAnalyzer:
             "total_hours": round(time_span, 2),
             "total_connections": len(user_data)
         }
+
+    def get_peak_bandwidth(self, user_id: str) -> Dict[str, Any]:
+        """Return peak bandwidth usage for a user."""
+        user_data = self.df[self.df['user'] == user_id]
+        if len(user_data) == 0:
+            return {"peak_bytes_per_second": 0.0, "peak_hour": None, "total_peak_bytes": 0}
+        hourly = user_data.groupby('hour')['bytes'].sum()
+        peak_hour = int(hourly.idxmax())
+        peak_bytes = int(hourly.max())
+        return {
+            "peak_bytes_per_second": round(peak_bytes / 3600, 2),
+            "peak_hour": peak_hour,
+            "total_peak_bytes": peak_bytes
+        }
     
     def get_port_stats(self, user_id: str) -> Dict[int, int]:
         """Return port behavior statistics for a user."""
