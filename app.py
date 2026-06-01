@@ -9,6 +9,7 @@ import os
 import json
 import logging
 import threading
+import time
 from utils.analysis import TrafficAnalyzer, generate_all_charts
 from utils.user_profile import UserProfileAnalyzer
 from utils.ai_security import AISecurityAnalyzer
@@ -219,6 +220,16 @@ def upload() -> str:
         logger.exception('文件上传失败')
         flash(f'文件上传失败: {exc}', 'danger')
         return redirect(url_for('index'))
+
+
+@app.route('/api/health')
+def api_health() -> Response:
+    """Health check endpoint."""
+    return jsonify({
+        'status': 'ok',
+        'timestamp': time.time(),
+        'version': '1.0.0',
+    })
 
 
 @app.route('/api/stats')
