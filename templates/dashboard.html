@@ -828,6 +828,24 @@
                 <div class="chart-box" style="margin-top: 18px;"><canvas id="user-hours-chart"></canvas></div>
             </div>
         </section>
+
+        <section class="section-title">
+            <h2>用户对比</h2>
+            <span>并排比较两个用户的流量特征</span>
+            <button class="toggle-btn" data-target="comparison-section" type="button">展开</button>
+        </section>
+        <div class="collapsible-body" id="comparison-section" style="max-height: 0px;" data-collapsed="true">
+        <section class="panel" style="margin-top: 14px;">
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+                <input id="comp-user-a" type="text" placeholder="用户 A" style="min-height:36px;padding:0 12px;border:1px solid var(--border);border-radius:6px;background:rgba(2,6,23,0.7);color:var(--text);font-size:13px;width:180px;font-family:inherit;">
+                <input id="comp-user-b" type="text" placeholder="用户 B" style="min-height:36px;padding:0 12px;border:1px solid var(--border);border-radius:6px;background:rgba(2,6,23,0.7);color:var(--text);font-size:13px;width:180px;font-family:inherit;">
+                <button class="btn" id="comp-btn" type="button">对比</button>
+            </div>
+            <div id="comp-results" style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+                <div class="loading" style="grid-column:1/-1;">输入两个用户名并点击对比</div>
+            </div>
+        </section>
+        </div>
     </main>
 
     <div id="shortcuts-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(2,6,23,0.85);backdrop-filter:blur(6px);align-items:center;justify-content:center;">
@@ -1305,6 +1323,52 @@
                     link.click();
                 }
             });
+        });
+
+        // ---- user comparison ----
+        document.getElementById('comp-btn').addEventListener('click', async function() {
+            const a = document.getElementById('comp-user-a').value.trim();
+            const b = document.getElementById('comp-user-b').value.trim();
+            if (!a || !b) return;
+            const box = document.getElementById('comp-results');
+            box.innerHTML = '<div class="loading" style="grid-column:1/-1;">正在加载对比数据...</div>';
+            try {
+                const resp = await fetch(`/api/user_comparison?user_a=${encodeURIComponent(a)}&user_b=${encodeURIComponent(b)}`);
+                const data = await resp.json();
+                if (data.error) { box.innerHTML = `<div class="loading" style="grid-column:1/-1;">${data.error}</div>`; return; }
+                const ua = data.user_a || {}, ub = data.user_b || {}, diff = data.diff || {};
+                box.innerHTML = `
+                    <div class="panel" style="background:rgba(34,197,94,0.06);border-color:rgba(34,197,94,0.25);">
+                        <h3 style="color:var(--green);">${ua.user || a}</h3>
+                        <div class="mini-list">
+                            <div class="mini-item"><span>总流量</span><strong>${formatBytes(ua.total_bytes)}</strong></div>
+                            <div class="mini-item"><span>总包数</span><strong>${ua.total_packets}</strong></div>
+                            <div class="mini-item"><span>活跃小时</span><strong>${ua.active_hours}</strong></div>
+                            <div class="mini-item"><span>协议</span><strong>${Object.keys(ua.protocols || {}).join(', ') || '-'}</strong></div>
+                            <div class="mini-item"><span>类别</span><strong>${Object.keys(ua.categories || {}).join(', ') || '-'}</strong></div>
+                        </div>
+                    </div>
+                    <div class="panel" style="background:rgba(139,92,246,0.06);border-color:rgba(139,92,246,0.25);">
+                        <h3 style="color:var(--violet);">${ub.user || b}</h3>
+                        <div class="mini-list">
+                            <div class="mini-item"><span>总流量</span><strong>${formatBytes(ub.total_bytes)}</strong></div>
+                            <div class="mini-item"><span>总包数</span><strong>${ub.total_packets}</strong></div>
+                            <div class="mini-item"><span>活跃小时</span><strong>${ub.active_hours}</strong></div>
+                            <div class="mini-item"><span>协议</span><strong>${Object.keys(ub.protocols || {}).join(', ') || '-'}</strong></div>
+                            <div class="mini-item"><span>类别</span><strong>${Object.keys(ub.categories || {}).join(', ') || '-'}</strong></div>
+                        </div>
+                    </div>
+                    <div class="panel" style="grid-column:1/-1;border-color:rgba(245,158,11,0.3);">
+                        <h3 style="color:var(--amber);">差异</h3>
+                        <div class="mini-list" style="grid-template-columns:1fr 1fr;">
+                            <div class="mini-item"><span>流量差 (A-B)</span><strong>${formatBytes(diff.bytes_diff)}</strong></div>
+                            <div class="mini-item"><span>包数差 (A-B)</span><strong>${diff.packets_diff}</strong></div>
+                        </div>
+                    </div>
+                `;
+            } catch(e) {
+                box.innerHTML = `<div class="loading" style="grid-column:1/-1;">对比失败: ${e}</div>`;
+            }
         });
 
         // collapsible sections
