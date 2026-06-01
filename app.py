@@ -203,6 +203,7 @@ def _attack_map_stats(analyzer: Optional[TrafficAnalyzer], security_report: Opti
 
 
 @app.route('/upload', methods=['POST'])
+@limiter.limit("5 per minute")
 def upload() -> str:
     """Handle CSV file upload and trigger analysis."""
     if 'file' not in request.files:
