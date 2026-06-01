@@ -263,6 +263,14 @@ class TrafficAnalyzer:
             return 0.0
         return round((latest - previous) / previous * 100, 2)
 
+    def get_concurrent_users(self) -> List[Dict[str, Any]]:
+        if self.df is None or len(self.df) == 0:
+            return []
+        hourly = self.df.groupby('hour')['user'].nunique().reset_index()
+        hourly.columns = ['hour', 'active_users']
+        hourly['hour'] = hourly['hour'].astype(str).str.zfill(2) + ':00'
+        return hourly.to_dict('records')
+
     def sample_data(self, fraction: float = 0.1, random_state: Optional[int] = None) -> pd.DataFrame:
         """Return a random sample of the dataframe for large dataset exploration."""
         if self.df is None or len(self.df) == 0:
