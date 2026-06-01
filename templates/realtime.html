@@ -136,7 +136,7 @@
 
         /* ---------- KPI ---------- */
         .kpi-row {
-            display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+            display: grid;             grid-template-columns: repeat(6, minmax(0, 1fr));
             gap: 14px; margin-bottom: 18px;
         }
         .kpi {
@@ -259,11 +259,10 @@
             content: ""; position: absolute;
             top: 8px; bottom: 8px; left: 0; width: 3px; border-radius: 2px;
         }
-        .alert-item.high::before { background: var(--red); box-shadow: 0 0 10px var(--red); }
-        .alert-item.medium::before { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
-        .alert-item.low::before { background: var(--green); box-shadow: 0 0 8px var(--green); }
-        .alert-item.high { border-color: rgba(239, 68, 68, 0.35); }
+        .alert-item.high { border-color: rgba(249, 115, 22, 0.35); }
         .alert-item.medium { border-color: rgba(245, 158, 11, 0.32); }
+        .alert-item.critical { border-color: rgba(239, 68, 68, 0.45); }
+        .alert-item.low { border-color: rgba(156, 163, 175, 0.3); }
 
         .alert-title {
             font-weight: 700; font-size: 13px; color: var(--text);
@@ -274,9 +273,10 @@
             font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
             padding: 2px 7px; border-radius: 3px;
         }
-        .alert-item.high .alert-title::after { background: rgba(239, 68, 68, 0.2); color: var(--red); }
+        .alert-item.high .alert-title::after { background: rgba(249, 115, 22, 0.2); color: #f97316; }
         .alert-item.medium .alert-title::after { background: rgba(245, 158, 11, 0.2); color: var(--amber); }
-        .alert-item.low .alert-title::after { background: rgba(34, 197, 94, 0.2); color: var(--green); }
+        .alert-item.low .alert-title::after { background: rgba(156, 163, 175, 0.2); color: #9ca3af; }
+        .alert-item.critical .alert-title::after { background: rgba(239, 68, 68, 0.2); color: var(--red); }
         .alert-meta {
             color: var(--muted); font-size: 11px; margin-top: 4px;
             font-family: "SFMono-Regular", Consolas, monospace;
@@ -303,9 +303,10 @@
             padding: 2px 8px; border-radius: 4px;
             font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
         }
-        .severity-badge.critical, .severity-badge.high { background: rgba(239, 68, 68, 0.2); color: var(--red); }
+        .severity-badge.critical { background: rgba(239, 68, 68, 0.2); color: var(--red); }
+        .severity-badge.high { background: rgba(249, 115, 22, 0.2); color: #f97316; }
         .severity-badge.medium { background: rgba(245, 158, 11, 0.2); color: var(--amber); }
-        .severity-badge.low { background: rgba(34, 197, 94, 0.2); color: var(--green); }
+        .severity-badge.low { background: rgba(156, 163, 175, 0.2); color: #9ca3af; }
 
         .empty-state {
             padding: 28px 12px; text-align: center;
@@ -363,6 +364,7 @@
             <button class="btn" id="applyRateBtn" title="运行中可即时调整速率">应用</button>
             <button class="btn primary" id="startBtn">▶ 启动回放</button>
             <button class="btn danger" id="stopBtn" disabled>■ 停止</button>
+            <button class="btn" id="pauseBtn">⏸ 暂停</button>
             <a class="nav-link" href="/dashboard">← 返回仪表板</a>
         </div>
     </div>
@@ -373,6 +375,7 @@
         <div class="kpi violet"><div class="name">Active Users</div><div class="value" id="kpiUsers">0</div></div>
         <div class="kpi amber"><div class="name">Source IPs</div><div class="value" id="kpiIps">0</div></div>
         <div class="kpi red"><div class="name">Live Alerts</div><div class="value" id="kpiAlerts">0</div></div>
+        <div class="kpi cyan" style="grid-column: span 1;"><div class="name">Event Rate</div><div class="value" id="kpiRate">0.0/s</div></div>
     </div>
 
     <div class="grid">
@@ -387,6 +390,7 @@
             <div class="panel-head">
                 <h3>实时告警流</h3>
                 <span class="panel-tag">RULE ENGINE</span>
+                <input id="alertSearch" type="text" placeholder="过滤告警…" style="min-height:30px;padding:0 10px;border:1px solid var(--border);border-radius:4px;background:rgba(2,6,23,0.7);color:var(--text);font-size:12px;width:160px;font-family:inherit;">
             </div>
             <div class="alert-list" id="alertList">
                 <div class="empty-state">等待启动回放…</div>
@@ -498,9 +502,36 @@
         el('stopBtn').disabled = !s.running;
     }
 
+    // ---- event rate -----------------------------------------------
+    let eventTimestamps = [];
+    function updateEventRate() {
+        var now = Date.now();
+        eventTimestamps.push(now);
+        var cutoff = now - 5000;
+        eventTimestamps = eventTimestamps.filter(function(t) { return t > cutoff; });
+        var rate = (eventTimestamps.length / 5).toFixed(1);
+        el('kpiRate').textContent = rate + '/s';
+    }
+
+    // ---- pause/resume ---------------------------------------------
+    let paused = false;
+    let pausedEvents = [];
+
+    // ---- event table ----------------------------------------------
+    let eventTimestamps = [];
+    function updateEventRate() {
+        var now = Date.now();
+        eventTimestamps.push(now);
+        var cutoff = now - 5000;
+        eventTimestamps = eventTimestamps.filter(function(t) { return t > cutoff; });
+        var rate = (eventTimestamps.length / 5).toFixed(1);
+        el('kpiRate').textContent = rate + '/s';
+    }
+
     // ---- event table ----------------------------------------------
     const tbody = el('eventTable').querySelector('tbody');
     function appendEvent(ev) {
+        if (paused) { pausedEvents.push(ev); return; }
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${fmtTime(ev.ts)}</td>
@@ -513,6 +544,7 @@
         `;
         tbody.prepend(tr);
         while (tbody.children.length > 30) tbody.removeChild(tbody.lastChild);
+        updateEventRate();
     }
 
     // ---- alerts ----------------------------------------------------
@@ -535,7 +567,17 @@
         } catch(e) {}
     }
 
+    function filterAlerts() {
+        var q = (el('alertSearch').value || '').toLowerCase().trim();
+        var items = alertList.querySelectorAll('.alert-item');
+        items.forEach(function(item) {
+            var text = (item.textContent || '').toLowerCase();
+            item.style.display = !q || text.indexOf(q) !== -1 ? '' : 'none';
+        });
+    }
+
     function appendAlert(a) {
+        if (paused) { pausedEvents.push(a); return; }
         if (!alertCleared) { alertList.innerHTML = ''; alertCleared = true; }
         const div = document.createElement('div');
         div.className = `alert-item ${a.level}`;
@@ -547,6 +589,8 @@
         alertList.prepend(div);
         while (alertList.children.length > 50) alertList.removeChild(alertList.lastChild);
         playAlertSound();
+        updateEventRate();
+        filterAlerts();
     }
 
     // ---- ML panel --------------------------------------------------
@@ -619,6 +663,32 @@
         };
     }
 
+    // ---- pause/resume ----------------------------------------------
+    el('pauseBtn').onclick = function() {
+        paused = !paused;
+        this.textContent = paused ? '▶ 恢复' : '⏸ 暂停';
+        this.classList.toggle('primary');
+        if (!paused && pausedEvents.length) {
+            var events = pausedEvents.slice();
+            pausedEvents = [];
+            events.forEach(function(ev) {
+                if (ev.title !== undefined) {
+                    if (!alertCleared) { alertList.innerHTML = ''; alertCleared = true; }
+                    var div = document.createElement('div');
+                    div.className = 'alert-item ' + ev.level;
+                    div.innerHTML = '<div class="alert-title" data-level="' + ev.level + '">' + ev.title + '</div><div class="alert-meta">' + fmtTime(ev.ts) + ' · ' + ev.entity + '</div><div class="alert-detail">' + ev.detail + '</div>';
+                    alertList.prepend(div);
+                    while (alertList.children.length > 50) alertList.removeChild(alertList.lastChild);
+                } else {
+                    var tr = document.createElement('tr');
+                    tr.innerHTML = '<td>' + fmtTime(ev.ts) + '</td><td>' + ev.user + '</td><td>' + ev.src_ip + '</td><td>' + ev.dst_ip + ':' + ev.dst_port + '</td><td>' + ev.protocol + '</td><td>' + ev.app_category + '</td><td class="num">' + ev.bytes + '</td>';
+                    tbody.prepend(tr);
+                    while (tbody.children.length > 30) tbody.removeChild(tbody.lastChild);
+                }
+            });
+        }
+    };
+
     // ---- controls --------------------------------------------------
     el('startBtn').onclick = async () => {
         const rate = parseFloat(el('rateInput').value) || 5;
@@ -647,6 +717,9 @@
             setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 800);
         }
     };
+
+    // ---- alert search ----------------------------------------------
+    el('alertSearch').addEventListener('input', filterAlerts);
 
     // ---- init ------------------------------------------------------
     fetch('/api/realtime/status').then(r => r.json()).then(applyMetrics);
