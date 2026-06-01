@@ -245,6 +245,9 @@ class UserProfileAnalyzer:
         total_packets = len(user_data)
         avg_bytes_per_packet = total_bytes / total_packets if total_packets > 0 else 0
 
+        if total_packets > 100:
+            tags.append('数据采集者')
+
         vpn_data = user_data[(user_data['dst_port'] == 443) & (user_data['protocol'] == 'UDP')]
         vpn_bytes = vpn_data['bytes'].sum()
         vpn_ratio = vpn_bytes / total_bytes * 100 if total_bytes > 0 else 0
