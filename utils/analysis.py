@@ -86,6 +86,19 @@ class TrafficAnalyzer:
         result = [{"user": user, "bytes": int(bytes_val)} for user, bytes_val in user_traffic.items()]
         self._set_cache(cache_key, result, ttl=300)
         return result
+
+    def get_user_ranking_by_packets(self, top_n: int = 10) -> List[Dict[str, Any]]:
+        """Return user rankings by packet count."""
+        if self.df is None or len(self.df) == 0:
+            return []
+        cache_key = f'user_ranking_by_packets_{top_n}'
+        cached = self._cache_result(cache_key)
+        if cached is not None:
+            return cached
+        user_packets = self.df.groupby('user')['timestamp'].count().sort_values(ascending=False).head(top_n)
+        result = [{"user": user, "packets": int(count)} for user, count in user_packets.items()]
+        self._set_cache(cache_key, result, ttl=300)
+        return result
     
     def get_app_category_traffic(self) -> List[Dict[str, Any]]:
         """Return traffic distribution by application category."""
