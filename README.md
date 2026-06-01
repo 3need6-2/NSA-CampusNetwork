@@ -178,7 +178,58 @@ docker-compose up --build
 
 ---
 
-CSV 文件格式
+## Configuration
+
+The application can be configured via three mechanisms (in order of precedence):
+
+1. **Environment variables** — override all other sources
+2. **`config.yaml`** — YAML configuration file in the project root
+3. **Application defaults** — hardcoded in `app.py`
+
+### Environment variables (`.env`)
+
+Copy `.env.example` to `.env` and adjust:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Default | Description |
+|---|---|---|
+| `FLASK_SECRET_KEY` | `nsa-campus-network-dev-key` | Secret key for session signing |
+| `FLASK_HOST` | `0.0.0.0` | Server bind address |
+| `FLASK_PORT` | `5001` | Server port |
+| `FLASK_DEBUG` | `false` | Enable Flask debug mode |
+| `DEEPSEEK_API_KEY` | — | DeepSeek API key (optional) |
+| `DEEPSEEK_API_URL` | `https://api.deepseek.com/v1/chat/completions` | DeepSeek API endpoint |
+| `DEEPSEEK_MODEL` | `deepseek-chat` | DeepSeek model name |
+
+### `config.yaml`
+
+All options with descriptions are documented in `config.yaml` in the project root:
+
+```yaml
+server:
+  host: "0.0.0.0"       # Bind address
+  port: 5001             # Listen port
+  debug: false           # Debug mode
+  secret_key: "..."      # Session secret
+
+upload:
+  allowed_extensions: "csv"   # Allowed file types
+  max_size_mb: 50             # Max upload size (MB)
+
+deepseek:
+  api_url: "https://api.deepseek.com/v1/chat/completions"
+  model: "deepseek-chat"
+  timeout: 20
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+```
+
+---
 
 上传的 CSV 文件应包含以下列（用逗号分隔）：
 
