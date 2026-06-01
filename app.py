@@ -2,8 +2,9 @@
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, Response, stream_with_context
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, Response, stream_with_context, make_response
 from werkzeug.utils import secure_filename
+from io import StringIO
 from pathlib import Path
 import os
 import json
@@ -270,6 +271,24 @@ def api_dashboard_data() -> Response:
         'ai_security': security_report,
         'ml_anomaly': snap['ml_anomaly_report'] or detect_anomalies(analyzer.df),
     })
+
+
+@app.route('/api/export/csv')
+def api_export_csv() -> Response:
+    """Export analysis data as CSV download."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer or analyzer.df is None:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    buf = StringIO()
+    analyzer.df.to_csv(buf, index=False)
+    buf.seek(0)
+
+    response = make_response(buf.getvalue())
+    response.headers['Content-Type'] = 'text/csv'
+    response.headers['Content-Disposition'] = 'attachment; filename=analysis_export.csv'
+    return response
 
 
 @app.route('/api/user_profiles')
