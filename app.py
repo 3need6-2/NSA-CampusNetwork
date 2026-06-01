@@ -273,6 +273,30 @@ def api_dashboard_data() -> Response:
     })
 
 
+@app.route('/api/export/json')
+def api_export_json() -> Response:
+    """Export all analysis data as JSON download."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    data = {
+        'total_traffic': analyzer.get_total_traffic(),
+        'user_ranking': analyzer.get_user_traffic_ranking(),
+        'app_category': analyzer.get_app_category_traffic(),
+        'active_hours': analyzer.get_active_hours(),
+        'user_profiles': snap['user_profiles'],
+        'ai_security': snap['ai_security_report'],
+        'ml_anomaly': snap['ml_anomaly_report'],
+    }
+
+    response = make_response(json.dumps(data, ensure_ascii=False, indent=2))
+    response.headers['Content-Type'] = 'application/json'
+    response.headers['Content-Disposition'] = 'attachment; filename=analysis_export.json'
+    return response
+
+
 @app.route('/api/export/csv')
 def api_export_csv() -> Response:
     """Export analysis data as CSV download."""
