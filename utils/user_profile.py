@@ -326,6 +326,16 @@ class UserProfileAnalyzer:
         if night_ratio > 60:
             tags.append('异常活跃时间')
 
+        user_data['day_of_week'] = user_data['timestamp'].dt.dayofweek
+        weekend_mask = user_data['day_of_week'] >= 5
+        weekday_mask = user_data['day_of_week'] < 5
+        weekend_bytes = user_data.loc[weekend_mask, 'bytes'].sum()
+        weekday_bytes = user_data.loc[weekday_mask, 'bytes'].sum()
+        weekday_count = max(weekday_mask.sum(), 1)
+        weekday_avg = weekday_bytes / weekday_count
+        if weekend_bytes > weekday_avg and weekday_count > 0:
+            tags.append('周末活跃')
+
         if active_hours:
             peak_hour = max(active_hours, key=lambda h: active_hours[h].get('bytes', 0))
             if 6 <= peak_hour < 12:
