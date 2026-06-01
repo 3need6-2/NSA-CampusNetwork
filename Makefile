@@ -1,4 +1,4 @@
-.PHONY: run dev install test lint clean docker-build docker-run help
+.PHONY: run dev install test lint format check clean docker-build docker-run help
 
 help:
 	@echo "NSA-CampusNetwork - Makefile"
@@ -9,6 +9,8 @@ help:
 	@echo "  make dev          Start Flask in debug mode"
 	@echo "  make test         Run tests with pytest"
 	@echo "  make lint         Lint Python code with flake8"
+	@echo "  make format       Format code with black and isort"
+	@echo "  make check        Run lint and typecheck"
 	@echo "  make clean        Remove __pycache__ and .pyc files"
 	@echo "  make docker-build Build Docker image"
 	@echo "  make docker-run   Run Docker container (port 5001)"
@@ -27,6 +29,14 @@ test:
 
 lint:
 	flake8 . --count --show-source --statistics
+
+format:
+	black .
+	isort .
+
+check: lint
+	@echo "--- Typecheck ---"
+	-command -v mypy >/dev/null 2>&1 && mypy . || echo "mypy not installed, skipping typecheck"
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
