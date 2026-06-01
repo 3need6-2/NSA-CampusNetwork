@@ -280,6 +280,9 @@ class UserProfileAnalyzer:
         
         if app_pct.get('video', 0) > 40:
             tags.append('视频大户')
+
+        if app_pct and all(pct < 40 for pct in app_pct.values()):
+            tags.append('平衡用户')
         
         if (app_pct.get('social', 0) + app_pct.get('chat', 0)) > 30:
             tags.append('社交达人')
