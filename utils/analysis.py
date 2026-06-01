@@ -119,6 +119,19 @@ class TrafficAnalyzer:
             {"ip": "1.1.1.1", "city": "Sydney", "country": "AU", "latitude": -33.868, "longitude": 151.209},
             {"ip": "198.41.0.4", "city": "Los Angeles", "country": "US", "latitude": 34.052, "longitude": -118.244},
         ]
+
+    def get_bandwidth_usage(self) -> Dict[str, float]:
+        """Estimate bandwidth usage in bytes per second."""
+        if self.df is None or len(self.df) == 0:
+            return {"bytes_per_second": 0.0, "total_seconds": 0.0}
+        time_span = (self.df['timestamp'].max() - self.df['timestamp'].min()).total_seconds()
+        if time_span <= 0:
+            return {"bytes_per_second": 0.0, "total_seconds": 0.0}
+        total_bytes = self.df['bytes'].sum()
+        return {
+            "bytes_per_second": round(float(total_bytes) / time_span, 2),
+            "total_seconds": round(time_span, 2)
+        }
     
     def get_app_category_traffic(self) -> List[Dict[str, Any]]:
         """Return traffic distribution by application category."""
