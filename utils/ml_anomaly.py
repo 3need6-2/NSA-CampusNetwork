@@ -18,26 +18,9 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from utils.constants import SUSPICIOUS_PORTS, FEATURE_NAMES
+
 logger = logging.getLogger(__name__)
-
-
-SUSPICIOUS_PORTS = {21, 22, 23, 25, 53, 135, 139, 445, 1433, 1521,
-                    3306, 3389, 5432, 5900, 6379, 9200, 27017}
-
-
-# 特征顺序固定，方便后续解释
-FEATURE_NAMES = [
-    "total_bytes",
-    "total_packets",
-    "unique_dst_ips",
-    "unique_dst_ports",
-    "suspicious_port_hits",
-    "night_byte_ratio",
-    "dns_query_count",
-    "max_hour_bytes",
-    "active_hour_count",
-    "avg_bytes_per_packet",
-]
 
 
 @dataclass
