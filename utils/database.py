@@ -72,3 +72,16 @@ def list_reports(limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def cleanup_old_reports(days: int = 30) -> int:
+    """Delete reports older than the specified number of days. Returns count of deleted rows."""
+    _init_db()
+    conn = _get_connection()
+    from datetime import timedelta
+    cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+    cursor = conn.execute("DELETE FROM reports WHERE created_at < ?", (cutoff,))
+    deleted = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return deleted
