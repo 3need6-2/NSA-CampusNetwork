@@ -105,6 +105,221 @@ class MLAnomalyDetector:
             "feature_names": FEATURE_NAMES,
         }
 
+    def detect_lof(self) -> Dict[str, Any]:
+        """Run LocalOutlierFactor anomaly detection on user traffic features."""
+        if self.df.empty or "user" not in self.df.columns:
+            return self._empty_report("数据为空或缺少 user 列。")
+
+        try:
+            features_df = self._build_features()
+        except Exception as exc:
+            logger.exception("ML 特征构造失败")
+            return self._empty_report(f"特征构造失败: {exc}")
+
+        if len(features_df) < self.config.min_users:
+            return self._empty_report(
+                f"用户数 {len(features_df)} 少于 {self.config.min_users}，跳过 ML 检测。"
+            )
+
+        try:
+            from sklearn.neighbors import LocalOutlierFactor
+            from sklearn.preprocessing import StandardScaler
+        except ImportError:
+            return self._empty_report("scikit-learn 未安装，已跳过 ML 检测。")
+
+        feature_matrix = features_df[FEATURE_NAMES].to_numpy(dtype=float)
+        scaler = StandardScaler()
+        scaled = scaler.fit_transform(feature_matrix)
+
+        contamination = min(self.config.contamination, max(1 / len(features_df), 0.01))
+
+        model = LocalOutlierFactor(
+            n_neighbors=20,
+            contamination=contamination,
+            novelty=False,
+        )
+        predictions = model.fit_predict(scaled)
+        raw_scores = -model.negative_outlier_factor_
+
+        normalized = self._normalize_scores(raw_scores)
+        features_df = features_df.assign(
+            anomaly_score=normalized,
+            is_anomaly=(predictions == -1),
+        )
+
+        anomalies = (
+            features_df[features_df["is_anomaly"]]
+            .sort_values("anomaly_score", ascending=False)
+            .head(self.config.top_n)
+        )
+
+        anomaly_records = [self._format_record(row) for _, row in anomalies.iterrows()]
+        normal_count = int((~features_df["is_anomaly"]).sum())
+
+        return {
+            "status": "ok",
+            "model": "LocalOutlierFactor",
+            "config": {
+                "contamination": round(contamination, 4),
+                "n_neighbors": 20,
+                "feature_count": len(FEATURE_NAMES),
+            },
+            "summary": {
+                "total_users": int(len(features_df)),
+                "anomaly_users": int(features_df["is_anomaly"].sum()),
+                "normal_users": normal_count,
+                "max_score": float(round(features_df["anomaly_score"].max(), 2)),
+                "median_score": float(round(features_df["anomaly_score"].median(), 2)),
+            },
+            "anomalies": anomaly_records,
+            "feature_names": FEATURE_NAMES,
+        }
+
+    def detect_svm(self) -> Dict[str, Any]:
+        """Run OneClassSVM anomaly detection on user traffic features."""
+        if self.df.empty or "user" not in self.df.columns:
+            return self._empty_report("数据为空或缺少 user 列。")
+
+        try:
+            features_df = self._build_features()
+        except Exception as exc:
+            logger.exception("ML 特征构造失败")
+            return self._empty_report(f"特征构造失败: {exc}")
+
+        if len(features_df) < self.config.min_users:
+            return self._empty_report(
+                f"用户数 {len(features_df)} 少于 {self.config.min_users}，跳过 ML 检测。"
+            )
+
+        try:
+            from sklearn.svm import OneClassSVM
+            from sklearn.preprocessing import StandardScaler
+        except ImportError:
+            return self._empty_report("scikit-learn 未安装，已跳过 ML 检测。")
+
+        feature_matrix = features_df[FEATURE_NAMES].to_numpy(dtype=float)
+        scaler = StandardScaler()
+        scaled = scaler.fit_transform(feature_matrix)
+
+        nu = min(self.config.contamination, max(1 / len(features_df), 0.01))
+
+        model = OneClassSVM(
+            nu=nu,
+            kernel="rbf",
+            gamma="auto",
+        )
+        model.fit(scaled)
+        raw_scores = model.score_samples(scaled)
+        predictions = model.predict(scaled)
+
+        normalized = self._normalize_scores(raw_scores)
+        features_df = features_df.assign(
+            anomaly_score=normalized,
+            is_anomaly=(predictions == -1),
+        )
+
+        anomalies = (
+            features_df[features_df["is_anomaly"]]
+            .sort_values("anomaly_score", ascending=False)
+            .head(self.config.top_n)
+        )
+
+        anomaly_records = [self._format_record(row) for _, row in anomalies.iterrows()]
+        normal_count = int((~features_df["is_anomaly"]).sum())
+
+        return {
+            "status": "ok",
+            "model": "OneClassSVM",
+            "config": {
+                "nu": round(nu, 4),
+                "kernel": "rbf",
+                "feature_count": len(FEATURE_NAMES),
+            },
+            "summary": {
+                "total_users": int(len(features_df)),
+                "anomaly_users": int(features_df["is_anomaly"].sum()),
+                "normal_users": normal_count,
+                "max_score": float(round(features_df["anomaly_score"].max(), 2)),
+                "median_score": float(round(features_df["anomaly_score"].median(), 2)),
+            },
+            "anomalies": anomaly_records,
+            "feature_names": FEATURE_NAMES,
+        }
+
+    def detect_ensemble(self) -> Dict[str, Any]:
+        """Run all 3 models and return consensus anomalies flagged by >=2 models."""
+        results = []
+        models_info = []
+
+        for name, method in [("IsolationForest", self.detect),
+                             ("LocalOutlierFactor", self.detect_lof),
+                             ("OneClassSVM", self.detect_svm)]:
+            result = method()
+            if result["status"] == "ok":
+                models_info.append(name)
+                results.append(result)
+
+        if len(results) < 2:
+            return self._empty_report("少于 2 个模型成功运行，无法进行集成检测。")
+
+        user_votes: Dict[str, List[str]] = {}
+        for result in results:
+            for anomaly in result["anomalies"]:
+                user = anomaly["user"]
+                user_votes.setdefault(user, []).append(result["model"])
+
+        consensus_users = {u for u, votes in user_votes.items() if len(votes) >= 2}
+
+        user_scores: Dict[str, List[float]] = {}
+        for result in results:
+            for anomaly in result["anomalies"]:
+                user = anomaly["user"]
+                user_scores.setdefault(user, []).append(anomaly["anomaly_score"])
+
+        consensus_records = []
+        seen = set()
+        for result in results:
+            for anomaly in result["anomalies"]:
+                if anomaly["user"] in consensus_users and anomaly["user"] not in seen:
+                    avg_score = round(sum(user_scores[anomaly["user"]]) / len(user_scores[anomaly["user"]]), 2)
+                    record = dict(anomaly)
+                    record["anomaly_score"] = avg_score
+                    record["voting_models"] = user_votes[anomaly["user"]]
+                    consensus_records.append(record)
+                    seen.add(anomaly["user"])
+
+        consensus_records.sort(key=lambda r: r["anomaly_score"], reverse=True)
+        consensus_records = consensus_records[:self.config.top_n]
+
+        total_users = max(r["summary"]["total_users"] for r in results)
+
+        median_score = 0.0
+        max_score = 0.0
+        if consensus_records:
+            scores = [r["anomaly_score"] for r in consensus_records]
+            max_score = float(round(max(scores), 2))
+            sorted_scores = sorted(scores)
+            median_score = float(round(sorted_scores[len(sorted_scores) // 2], 2))
+
+        return {
+            "status": "ok",
+            "model": "Ensemble",
+            "config": {
+                "models": models_info,
+                "min_consensus": 2,
+                "top_n": self.config.top_n,
+            },
+            "summary": {
+                "total_users": total_users,
+                "anomaly_users": len(consensus_records),
+                "normal_users": max(0, total_users - len(consensus_records)),
+                "max_score": max_score,
+                "median_score": median_score,
+            },
+            "anomalies": consensus_records,
+            "feature_names": FEATURE_NAMES,
+        }
+
     def _build_features(self) -> pd.DataFrame:
         """Build a feature matrix from user traffic data for anomaly detection."""
         df = self.df.copy()
