@@ -101,6 +101,58 @@ class TrafficAnalyzer:
         app_dist = user_data.groupby('app_category')['bytes'].sum().sort_values(ascending=False)
         return [{"category": cat, "bytes": int(bytes_val)} for cat, bytes_val in app_dist.items()]
 
+    def get_protocol_distribution(self) -> Dict[str, Any]:
+        """Return bytes per protocol."""
+        if self.df is None or len(self.df) == 0:
+            return {}
+        protocol_bytes = self.df.groupby('protocol')['bytes'].sum().to_dict()
+        return {str(k): int(v) for k, v in protocol_bytes.items()}
+
+    def get_top_talkers(self, top_n: int = 10) -> List[Dict[str, Any]]:
+        """Return top source IPs by total bytes."""
+        if self.df is None or len(self.df) == 0:
+            return []
+        top_ips = self.df.groupby('src_ip')['bytes'].sum().sort_values(ascending=False).head(top_n)
+        return [{"src_ip": ip, "bytes": int(bytes_val)} for ip, bytes_val in top_ips.items()]
+
+    def filter_by_date_range(self, start_date: str, end_date: str) -> pd.DataFrame:
+        """Filter the dataframe to a date range (inclusive)."""
+        if self.df is None or len(self.df) == 0:
+            return pd.DataFrame()
+        start = pd.Timestamp(start_date).date()
+        end = pd.Timestamp(end_date).date()
+        return self.df[(self.df['date'] >= start) & (self.df['date'] <= end)].copy()
+
+    def get_hourly_averages(self) -> List[Dict[str, Any]]:
+        """Return average bytes per hour across all days."""
+        if self.df is None or len(self.df) == 0:
+            return []
+        hourly_avg = self.df.groupby('hour')['bytes'].mean().reset_index()
+        hourly_avg.columns = ['hour', 'avg_bytes']
+        hourly_avg['hour'] = hourly_avg['hour'].astype(str).str.zfill(2) + ':00'
+        return hourly_avg.to_dict('records')
+
+    def get_daily_stats(self) -> List[Dict[str, Any]]:
+        """Return total bytes and packets per day."""
+        if self.df is None or len(self.df) == 0:
+            return []
+        daily = self.df.groupby('date').agg(
+            total_bytes=('bytes', 'sum'),
+            total_packets=('timestamp', 'count')
+        ).reset_index()
+        daily['date'] = daily['date'].astype(str)
+        return daily.to_dict('records')
+
+    def get_concurrent_users(self) -> List[Dict[str, Any]]:
+        """Return number of active users per hour bucket."""
+        if self.df is None or len(self.df) == 0:
+            return []
+        hourly_users = self.df.groupby(['date', 'hour'])['user'].nunique().reset_index()
+        hourly_users.columns = ['date', 'hour', 'active_users']
+        hourly_users['date'] = hourly_users['date'].astype(str)
+        hourly_users['hour'] = hourly_users['hour'].astype(str).str.zfill(2) + ':00'
+        return hourly_users.to_dict('records')
+
 
 def generate_traffic_trend_chart(analyzer: TrafficAnalyzer) -> str:
     """Generate a traffic trend line chart as HTML."""

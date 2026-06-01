@@ -152,7 +152,30 @@ class UserProfileAnalyzer:
             daily_bytes[str(date)] = int(bytes_val)
         
         return daily_bytes
-    
+
+    def get_download_upload_ratio(self, user_id: str) -> Dict[str, Any]:
+        """Compute download vs upload ratio based on dst_port heuristic."""
+        user_data = self.df[self.df['user'] == user_id]
+        if len(user_data) == 0:
+            return {"download_bytes": 0, "upload_bytes": 0, "ratio": None}
+
+        download = user_data[user_data['dst_port'] >= 1024]['bytes'].sum()
+        upload = user_data[user_data['dst_port'] < 1024]['bytes'].sum()
+
+        ratio = round(download / upload, 2) if upload > 0 else None
+
+        return {
+            "download_bytes": int(download),
+            "upload_bytes": int(upload),
+            "ratio": ratio
+        }
+
+    def get_connection_count(self, user_id: str) -> int:
+        """Return total connections for a user."""
+        if self.df is None or len(self.df) == 0:
+            return 0
+        return len(self.df[self.df['user'] == user_id])
+
     def generate_tags(self, user_id: str) -> List[str]:
         """Generate tags based on user behavior characteristics."""
         tags = []
@@ -165,7 +188,11 @@ class UserProfileAnalyzer:
         
         user_data = self.df[self.df['user'] == user_id]
         total_bytes = user_data['bytes'].sum()
-        
+
+        stats = self._get_global_traffic_stats()
+        if stats['std'] > 0 and total_bytes > stats['mean'] + 2 * stats['std']:
+            tags.append('大流量用户')
+
         if app_pct.get('game', 0) > 30:
             tags.append('游戏狂')
         
@@ -213,7 +240,14 @@ class UserProfileAnalyzer:
         
         if night_ratio > 60:
             tags.append('异常活跃时间')
-        
+
+        if active_hours:
+            peak_hour = max(active_hours, key=lambda h: active_hours[h].get('bytes', 0))
+            if 6 <= peak_hour < 12:
+                tags.append('上午活跃')
+            elif 12 <= peak_hour < 18:
+                tags.append('下午活跃')
+
         return list(set(tags))
     
     def _get_variance_threshold(self) -> float:
@@ -235,6 +269,16 @@ class UserProfileAnalyzer:
         variances = pivot.var(axis=1, ddof=0)
         self._global_variance_threshold = float(variances.median()) if len(variances) else 0.0
         return self._global_variance_threshold
+
+    def _get_global_traffic_stats(self) -> Dict[str, float]:
+        """Compute mean and std of total bytes per user across all users."""
+        if self.df is None or len(self.df) == 0:
+            return {"mean": 0.0, "std": 0.0}
+        user_totals = self.df.groupby('user')['bytes'].sum()
+        return {
+            "mean": float(user_totals.mean()),
+            "std": float(user_totals.std())
+        }
 
     def analyze_all_users(self) -> Dict[str, Any]:
         """Analyze all users and generate complete profiles."""
