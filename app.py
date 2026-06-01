@@ -512,6 +512,11 @@ def api_dashboard_data() -> Response:
     return jsonify(data)
 
 
+@app.route('/api/export/pdf')
+def api_export_pdf() -> Response:
+    return jsonify({'status': 'not_implemented', 'message': 'PDF export is not yet implemented.'}), 501
+
+
 @app.route('/api/export/json')
 def api_export_json() -> Response:
     """Export all analysis data as JSON download."""
