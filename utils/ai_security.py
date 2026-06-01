@@ -156,6 +156,41 @@ class AISecurityAnalyzer:
         self.df = df.copy() if df is not None else pd.DataFrame()
         self.alerts: List[Dict[str, Any]] = []
         self.blocked_entities: List[Dict[str, Any]] = []
+        self._severity_overrides: Dict[str, str] = {}
+
+    @staticmethod
+    def _sanitize_input(text: str) -> str:
+        """Strip common XSS characters from user-supplied text fields."""
+        if not isinstance(text, str):
+            return ""
+        import re
+        text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r'<[^>]*on\w+\s*=[^>]*>', '', text, flags=re.IGNORECASE)
+        text = text.replace('<', '&lt;').replace('>', '&gt;')
+        text = text.replace('"', '&quot;').replace("'", '&#x27;')
+        text = text.replace('javascript:', '', flags=re.IGNORECASE)
+        text = text.replace('onerror=', '').replace('onload=', '')
+        return text
+
+    @staticmethod
+    def _check_ip_reputation(ip: str) -> Dict[str, Any]:
+        """Return mock reputation data for an IP address (placeholder for future integration)."""
+        if not isinstance(ip, str) or not ip:
+            return {"ip": ip, "reputation": "unknown", "score": 0, "source": "mock"}
+        return {
+            "ip": ip,
+            "reputation": "clean" if ip.startswith(("10.", "192.168.", "172.16.")) else "unknown",
+            "score": 0,
+            "source": "mock",
+            "categories": [],
+            "last_updated": None,
+        }
+
+    def _severity_override(self, alert_type: str, score: int) -> str:
+        """Map alert type to a configured severity via a simple dictionary override."""
+        if alert_type in self._severity_overrides:
+            return self._severity_overrides[alert_type]
+        return self._severity(score)
 
     def generate_report(self, include_deepseek: bool = False) -> Dict[str, Any]:
         """Generate a complete security report with alerts and blocklist."""
