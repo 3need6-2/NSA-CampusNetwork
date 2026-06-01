@@ -778,6 +778,9 @@
         </section>
 
         <section class="panel">
+            <div style="margin-bottom: 14px;">
+                <input id="user-search-input" type="text" placeholder="搜索用户..." style="width: 100%; min-height: 38px; padding: 0 14px; border: 1px solid var(--border); border-radius: 6px; background: rgba(2,6,23,0.7); color: var(--text); font-size: 14px; font-family: inherit;">
+            </div>
             <div id="user-tags-container" class="user-grid">
                 <div class="loading">正在加载用户画像...</div>
             </div>
@@ -1029,21 +1032,31 @@
             try {
                 const response = await fetch('/api/user_profiles');
                 userProfilesData = await response.json();
-                renderUserTags();
+                var filterInput = document.getElementById('user-search-input');
+                renderUserTags(filterInput ? filterInput.value : '');
             } catch (error) {
                 document.getElementById('user-tags-container').innerHTML = '<div class="loading">用户画像加载失败。</div>';
             }
         }
 
-        function renderUserTags() {
+        function renderUserTags(filter) {
             const container = document.getElementById('user-tags-container');
-            const entries = Object.entries(userProfilesData || {}).slice(0, 12);
+            const searchInput = document.getElementById('user-search-input');
+            const entries = Object.entries(userProfilesData || {});
             if (!entries.length) {
                 container.innerHTML = '<div class="loading">暂无用户画像。</div>';
                 return;
             }
 
-            container.innerHTML = entries.map(([userId, profile]) => `
+            const q = (filter || '').toLowerCase().trim();
+            const filtered = q ? entries.filter(([userId]) => userId.toLowerCase().includes(q)) : entries.slice(0, 12);
+
+            if (!filtered.length) {
+                container.innerHTML = '<div class="loading">未找到匹配的用户。</div>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(([userId, profile]) => `
                 <button class="user-card" type="button" data-user="${userId}">
                     <strong>${userId}</strong>
                     <div class="tag-row">
@@ -1056,6 +1069,15 @@
                 card.addEventListener('click', () => showUserDetail(card.dataset.user));
             });
         }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var searchInput = document.getElementById('user-search-input');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    renderUserTags(this.value);
+                });
+            }
+        });
 
         function showUserDetail(userId) {
             const profile = userProfilesData[userId];
