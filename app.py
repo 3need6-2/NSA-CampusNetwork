@@ -241,6 +241,18 @@ def upload() -> str:
         return redirect(url_for('index'))
 
 
+@app.route('/api/config')
+def api_config() -> Response:
+    """Return current app configuration excluding secrets."""
+    return jsonify({
+        'upload_folder': str(app.config['UPLOAD_FOLDER']),
+        'max_content_length': app.config['MAX_CONTENT_LENGTH'],
+        'allowed_extensions': list(ALLOWED_EXTENSIONS),
+        'debug': app.debug,
+        'version': '1.0.0',
+    })
+
+
 @app.route('/api/health')
 def api_health() -> Response:
     """Health check endpoint."""
