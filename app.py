@@ -359,6 +359,18 @@ def api_analyze_batch() -> Response:
     return jsonify({'results': results, 'errors': errors, 'total': len(files), 'success': len(results)})
 
 
+@app.route('/api/data/sample')
+def api_data_sample() -> Response:
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': 'No data loaded.'}), 404
+    n = request.args.get('n', 5, type=int)
+    n = max(1, min(n, 100))
+    sample = analyzer.df.sample(n=n).to_dict('records')
+    return jsonify({'sample': sample, 'count': len(sample)})
+
+
 @app.route('/api/data/info')
 def api_data_info() -> Response:
     snap = state.snapshot()
