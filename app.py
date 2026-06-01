@@ -507,6 +507,20 @@ def api_users() -> Response:
     return jsonify({'users': users, 'count': len(users)})
 
 
+@app.route('/api/users/<user_id>/profile')
+def api_user_profile(user_id: str) -> Response:
+    """Return profile for a specific user."""
+    snap = state.snapshot()
+    if not snap['analyzer']:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    profile = snap['user_profiles'].get(user_id)
+    if profile is None:
+        return jsonify({'error': 'not_found', 'message': f'用户 {user_id} 不存在。'}), 404
+
+    return jsonify({'user': user_id, 'profile': profile})
+
+
 @app.template_filter('format_bytes')
 def format_bytes(bytes_val: Union[int, float]) -> str:
     """Jinja template filter to format byte counts as human-readable strings."""
