@@ -394,6 +394,14 @@
             font-size: 13px;
         }
 
+        .toggle-btn {
+            background: none; border: 1px solid var(--border); border-radius: 4px;
+            color: var(--muted); cursor: pointer; font-size: 12px; padding: 4px 10px;
+            transition: border-color 160ms ease, color 160ms ease;
+        }
+        .toggle-btn:hover { border-color: var(--cyan); color: var(--text); }
+        .collapsible-body { overflow: hidden; transition: max-height 0.3s ease; }
+
         .grid-2 {
             display: grid;
             grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -698,8 +706,10 @@
         <section class="section-title">
             <h2>流量趋势与应用分布</h2>
             <span>所有图表均由 `/api/dashboard_data` 实时填充</span>
+            <button class="toggle-btn" data-target="charts-section" type="button">折叠</button>
         </section>
 
+        <div class="collapsible-body" id="charts-section">
         <section class="grid-2">
             <div class="panel">
                 <h3>小时流量趋势</h3>
@@ -710,11 +720,15 @@
                 <div class="chart-box"><canvas id="app-category-chart"></canvas></div>
             </div>
         </section>
+        </div>
 
         <section class="section-title">
             <h2>用户与时段分析</h2>
             <span>排行、小时统计和用户画像联动</span>
+            <button class="toggle-btn" data-target="user-hours-section" type="button">折叠</button>
         </section>
+
+        <div class="collapsible-body" id="user-hours-section">
 
         <section class="grid-3">
             <div class="panel">
@@ -738,11 +752,15 @@
                 </table>
             </div>
         </section>
+        </div>
 
         <section class="section-title">
             <h2>ML 异常用户检测</h2>
             <span>IsolationForest 无监督模型，10 维行为特征，自动评分</span>
+            <button class="toggle-btn" data-target="ml-section" type="button">折叠</button>
         </section>
+
+        <div class="collapsible-body" id="ml-section">
 
         <section class="panel">
             <div id="ml-summary" class="mini-list" style="margin-bottom: 12px;">
@@ -771,11 +789,15 @@
             <button class="btn" id="ml-refresh-btn" type="button" style="margin-top: 12px;">重新跑 ML 检测</button>
             <p class="metric-note" id="ml-refresh-note" role="status" aria-live="polite"></p>
         </section>
+        </div>
 
         <section class="section-title">
             <h2>用户画像</h2>
             <span>点击用户卡片查看协议、应用和活跃时段</span>
+            <button class="toggle-btn" data-target="profiles-section" type="button">折叠</button>
         </section>
+
+        <div class="collapsible-body" id="profiles-section">
 
         <section class="panel">
             <div style="margin-bottom: 14px;">
@@ -785,6 +807,7 @@
                 <div class="loading">正在加载用户画像...</div>
             </div>
         </section>
+        </div>
 
         <section id="user-detail-panel" class="grid-2" style="display: none; margin-top: 18px;">
             <div class="panel">
@@ -1195,6 +1218,24 @@
         document.addEventListener('DOMContentLoaded', () => {
             loadDashboardData();
             loadUserProfiles();
+        });
+
+        // collapsible sections
+        document.querySelectorAll('.toggle-btn[data-target]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var target = document.getElementById(this.dataset.target);
+                if (!target) return;
+                var isCollapsed = target.style.maxHeight === '0px' || target.dataset.collapsed === 'true';
+                if (isCollapsed) {
+                    target.style.maxHeight = target.scrollHeight + 'px';
+                    target.dataset.collapsed = 'false';
+                    this.textContent = '折叠';
+                } else {
+                    target.style.maxHeight = '0px';
+                    target.dataset.collapsed = 'true';
+                    this.textContent = '展开';
+                }
+            });
         });
     </script>
 </body>
