@@ -352,6 +352,10 @@
         </div>
         <div class="controls">
             <span class="status-pill stopped" id="statusPill"><span class="dot"></span><span id="statusText">未启动</span></span>
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);">
+                <span id="sse-indicator" style="width:10px;height:10px;border-radius:50%;background:var(--muted);display:inline-block;"></span>
+                <span id="sse-text">SSE 断开</span>
+            </span>
             <span class="label">速率</span>
             <input id="rateInput" type="number" class="input" min="0.5" max="50" step="0.5" value="5">
             <button class="btn" id="applyRateBtn" title="运行中可即时调整速率">应用</button>
@@ -575,11 +579,23 @@
         `;
     }
 
+    function updateSSEIndicator(connected) {
+        var dot = document.getElementById('sse-indicator');
+        var txt = document.getElementById('sse-text');
+        if (!dot || !txt) return;
+        dot.style.background = connected ? 'var(--green)' : 'var(--red)';
+        dot.style.boxShadow = connected ? '0 0 10px rgba(34,197,94,0.8)' : '0 0 10px rgba(239,68,68,0.8)';
+        txt.textContent = connected ? 'SSE 已连接' : 'SSE 断开';
+    }
+
     // ---- SSE -------------------------------------------------------
     let evtSource = null;
     function connectSSE() {
         if (evtSource) evtSource.close();
         evtSource = new EventSource('/api/realtime/stream');
+        evtSource.addEventListener('open', function() {
+            updateSSEIndicator(true);
+        });
         evtSource.addEventListener('snapshot', e => {
             const s = JSON.parse(e.data);
             applyMetrics(s);
@@ -596,7 +612,9 @@
             el('startBtn').disabled = false;
             el('stopBtn').disabled = true;
         });
-        evtSource.onerror = () => {};
+        evtSource.onerror = function() {
+            updateSSEIndicator(false);
+        };
     }
 
     // ---- controls --------------------------------------------------
