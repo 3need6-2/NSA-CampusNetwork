@@ -256,6 +256,8 @@ class UserProfileAnalyzer:
         )
         if all_private and len(src_ips) > 0:
             tags.append('内网用户')
+        elif len(src_ips) > 0:
+            tags.append('外网用户')
 
         vpn_data = user_data[(user_data['dst_port'] == 443) & (user_data['protocol'] == 'UDP')]
         vpn_bytes = vpn_data['bytes'].sum()
