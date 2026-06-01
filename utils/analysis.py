@@ -111,6 +111,14 @@ class TrafficAnalyzer:
         result = {str(k): int(v) for k, v in result.items()}
         self._set_cache('protocol_count', result, ttl=300)
         return result
+
+    def get_ip_geography(self) -> List[Dict[str, Any]]:
+        """Return placeholder IP geolocation data."""
+        return [
+            {"ip": "8.8.8.8", "city": "Mountain View", "country": "US", "latitude": 37.386, "longitude": -122.084},
+            {"ip": "1.1.1.1", "city": "Sydney", "country": "AU", "latitude": -33.868, "longitude": 151.209},
+            {"ip": "198.41.0.4", "city": "Los Angeles", "country": "US", "latitude": 34.052, "longitude": -118.244},
+        ]
     
     def get_app_category_traffic(self) -> List[Dict[str, Any]]:
         """Return traffic distribution by application category."""
