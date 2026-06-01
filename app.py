@@ -3,6 +3,8 @@
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, Response, stream_with_context, make_response
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from werkzeug.utils import secure_filename
 from io import StringIO
 import pandas as pd
@@ -19,6 +21,8 @@ from utils.ml_anomaly import detect_anomalies
 from utils.realtime import ReplayEngine, stream_events
 
 app = Flask(__name__)
+
+limiter = Limiter(app=app, key_func=get_remote_address)
 
 UPLOAD_FOLDER = Path(__file__).parent / 'data'
 ALLOWED_EXTENSIONS = {'csv'}
@@ -485,6 +489,21 @@ def api_realtime_stream() -> Response:
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['X-Accel-Buffering'] = 'no'
     return response
+
+
+# ── API: Users ──────────────────────────────────────────────────────────────
+
+
+@app.route('/api/users')
+def api_users() -> Response:
+    """Return list of all users."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    users = sorted(analyzer.df['user'].unique().tolist())
+    return jsonify({'users': users, 'count': len(users)})
 
 
 @app.template_filter('format_bytes')
