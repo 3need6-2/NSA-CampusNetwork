@@ -646,6 +646,35 @@ def api_traffic_timeline() -> Response:
     return jsonify({'timeline': timeline, 'count': len(timeline), 'from': from_str, 'to': to_str})
 
 
+@app.route('/api/network/topology')
+def api_network_topology() -> Response:
+    """Return network topology data (unique src_ip to dst_ip connections)."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    edges = (
+        analyzer.df.groupby(['src_ip', 'dst_ip'])
+        .agg(connections=('bytes', 'count'), bytes=('bytes', 'sum'))
+        .reset_index()
+    )
+    edges = edges.sort_values('connections', ascending=False)
+
+    return jsonify({
+        'nodes': {
+            'sources': sorted(analyzer.df['src_ip'].unique().tolist()),
+            'destinations': sorted(analyzer.df['dst_ip'].unique().tolist()),
+        },
+        'edges': [
+            {'source': r['src_ip'], 'target': r['dst_ip'],
+             'connections': int(r['connections']), 'bytes': int(r['bytes'])}
+            for _, r in edges.iterrows()
+        ],
+        'total_edges': len(edges),
+    })
+
+
 @app.route('/api/traffic/protocols')
 def api_traffic_protocols() -> Response:
     """Return protocol distribution data."""
