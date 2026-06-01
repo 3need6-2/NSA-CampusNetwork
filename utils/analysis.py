@@ -403,6 +403,15 @@ class TrafficAnalyzer:
         }
 
     @staticmethod
+    def get_traffic_efficiency(self) -> float:
+        if self.df is None or len(self.df) == 0:
+            return 0.0
+        total_bytes = self.df['bytes'].sum()
+        total_packets = len(self.df)
+        if total_packets == 0:
+            return 0.0
+        return round(total_bytes / total_packets, 2)
+
     def get_user_device_count(self) -> Dict[str, int]:
         if self.df is None or len(self.df) == 0:
             return {}
