@@ -153,6 +153,17 @@ class UserProfileAnalyzer:
             "peak_hour": peak_hour,
             "total_peak_bytes": peak_bytes
         }
+
+    def get_protocol_diversity(self, user_id: str) -> Dict[str, Any]:
+        """Return number of unique protocols used by a user."""
+        user_data = self.df[self.df['user'] == user_id]
+        if len(user_data) == 0:
+            return {"unique_protocols": 0, "protocols": []}
+        protocols = user_data['protocol'].unique().tolist()
+        return {
+            "unique_protocols": len(protocols),
+            "protocols": sorted(protocols)
+        }
     
     def get_port_stats(self, user_id: str) -> Dict[int, int]:
         """Return port behavior statistics for a user."""
