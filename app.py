@@ -29,6 +29,15 @@ app.secret_key = os.getenv('FLASK_SECRET_KEY', 'nsa-campus-network-dev-key')
 
 UPLOAD_FOLDER.mkdir(exist_ok=True)
 
+
+@app.after_request
+def add_cors_headers(response: Response) -> Response:
+    """Add CORS headers to all responses."""
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+    return response
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
