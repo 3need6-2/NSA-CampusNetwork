@@ -597,6 +597,30 @@ def api_traffic_protocols() -> Response:
     return jsonify({'protocols': protocols, 'total_bytes': total})
 
 
+@app.route('/api/summary')
+def api_summary() -> Response:
+    """Return a combined summary of all analysis."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({'error': 'no_data', 'message': '请先上传 CSV 流量数据。'}), 404
+
+    ai_report = snap['ai_security_report'] or {}
+    ml_report = snap['ml_anomaly_report'] or {}
+
+    return jsonify({
+        'total_traffic': analyzer.get_total_traffic(),
+        'user_ranking': analyzer.get_user_traffic_ranking(top_n=5),
+        'app_category': analyzer.get_app_category_traffic(),
+        'active_hours': analyzer.get_active_hours(),
+        'user_count': len(snap['user_profiles']),
+        'security_summary': {
+            'ai_threats': len(ai_report.get('threats', [])),
+            'ml_anomalies': len(ml_report.get('anomalies', [])),
+        },
+    })
+
+
 @app.template_filter('format_bytes')
 def format_bytes(bytes_val: Union[int, float]) -> str:
     """Jinja template filter to format byte counts as human-readable strings."""
