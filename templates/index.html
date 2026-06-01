@@ -385,6 +385,10 @@
                 <span class="btn" style="cursor: default; opacity: 0.7;">下方上传 CSV 后解锁全部模块</span>
                 {% endif %}
             </div>
+            <div class="hero-cta">
+                <a href="/dashboard" class="btn">安全仪表板</a>
+                <a href="/realtime" class="btn violet">实时大屏</a>
+            </div>
             <div class="badge-row">
                 <span class="badge cyan"><span class="dot"></span>规则引擎</span>
                 <span class="badge violet"><span class="dot"></span>IsolationForest</span>
@@ -460,6 +464,35 @@
             <code>timestamp · src_ip · dst_ip · src_port · dst_port · protocol · bytes · app_category · user</code>
         </div>
     </section>
+
+    {% if upload_history %}
+    <section style="margin-top:22px;">
+        <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px;">
+            <h3 style="margin:0;font-size:16px;font-weight:700;">最近上传记录</h3>
+            <span style="color:var(--muted);font-size:12px;">共 {{ upload_history|length }} 次</span>
+        </div>
+        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;background:var(--panel);">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead>
+                    <tr>
+                        <th style="padding:12px 14px;text-align:left;color:var(--muted);font-weight:700;text-transform:uppercase;border-bottom:1px solid rgba(148,163,184,0.12);">文件名</th>
+                        <th style="padding:12px 14px;text-align:left;color:var(--muted);font-weight:700;text-transform:uppercase;border-bottom:1px solid rgba(148,163,184,0.12);">大小</th>
+                        <th style="padding:12px 14px;text-align:left;color:var(--muted);font-weight:700;text-transform:uppercase;border-bottom:1px solid rgba(148,163,184,0.12);">时间</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for upload in upload_history %}
+                    <tr>
+                        <td style="padding:10px 14px;border-bottom:1px solid rgba(148,163,184,0.08);color:var(--text);">{{ upload.filename }}</td>
+                        <td style="padding:10px 14px;border-bottom:1px solid rgba(148,163,184,0.08);color:var(--muted);font-family:monospace;">{{ upload.size }}</td>
+                        <td style="padding:10px 14px;border-bottom:1px solid rgba(148,163,184,0.08);color:var(--muted);">{{ upload.time }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endif %}
 </div>
 <script>
 (function() {
