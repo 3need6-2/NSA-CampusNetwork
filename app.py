@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, Response, stream_with_context, make_response
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, Response, stream_with_context, make_response, after_this_request
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.utils import secure_filename
@@ -45,11 +45,38 @@ def add_cors_headers(response: Response) -> Response:
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
     return response
 
+
+@app.after_request
+def add_gzip_compression(response: Response) -> Response:
+    """Apply gzip compression to text responses if accepted by client."""
+    return compress_response(response)
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
 )
 logger = logging.getLogger('nsa.app')
+
+
+def compress_response(response: Response) -> Response:
+    """Apply gzip compression to text responses if accepted by client."""
+    accept_encoding = request.headers.get('Accept-Encoding', '')
+    if 'gzip' not in accept_encoding:
+        return response
+    if response.content_length and response.content_length < 500:
+        return response
+    if response.mimetype and not response.mimetype.startswith(('text/', 'application/json', 'application/javascript')):
+        return response
+
+    import gzip
+    response.direct_passthrough = False
+    payload = response.get_data()
+    compressed = gzip.compress(payload)
+    response.set_data(compressed)
+    response.headers['Content-Encoding'] = 'gzip'
+    response.headers['Content-Length'] = len(compressed)
+    response.headers['Vary'] = 'Accept-Encoding'
+    return response
 
 
 @app.before_request
