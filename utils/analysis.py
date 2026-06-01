@@ -166,6 +166,15 @@ class TrafficAnalyzer:
         port_traffic = self.df.groupby('dst_port')['bytes'].sum().sort_values(ascending=False).head(top_n)
         return [{"port": int(port), "bytes": int(bytes_val)} for port, bytes_val in port_traffic.items()]
 
+    def get_tls_ratio(self) -> float:
+        if self.df is None or len(self.df) == 0:
+            return 0.0
+        total = self.df['bytes'].sum()
+        if total == 0:
+            return 0.0
+        tls_bytes = self.df[self.df['dst_port'] == 443]['bytes'].sum()
+        return round(tls_bytes / total * 100, 2)
+
     def get_concurrent_users(self) -> List[Dict[str, Any]]:
         """Return number of active users per hour bucket."""
         if self.df is None or len(self.df) == 0:
