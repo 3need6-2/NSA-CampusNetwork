@@ -1,5 +1,6 @@
 """Traffic analysis utilities for campus network data."""
 
+import time
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
@@ -10,6 +11,30 @@ from pathlib import Path
 
 class TrafficAnalyzer:
     """Campus network traffic analysis class."""
+
+    _cache: Dict[str, Any] = {}
+    _cache_ttl: Dict[str, float] = {}
+
+    def _cache_result(self, key: str, ttl: int = 300) -> Any:
+        """Get cached result if valid, else return sentinel to recompute."""
+        now = time.time()
+        if key in self._cache and now < self._cache_ttl.get(key, 0):
+            return self._cache[key]
+        return None
+
+    def _set_cache(self, key: str, value: Any, ttl: int = 300) -> None:
+        """Store a value in the cache with a TTL in seconds."""
+        self._cache[key] = value
+        self._cache_ttl[key] = time.time() + ttl
+
+    def _invalidate_cache(self, key: Optional[str] = None) -> None:
+        """Invalidate a specific cache key or clear all."""
+        if key:
+            self._cache.pop(key, None)
+            self._cache_ttl.pop(key, None)
+        else:
+            self._cache.clear()
+            self._cache_ttl.clear()
     
     def __init__(self, csv_path: str) -> None:
         """Initialize the analyzer and load the CSV file."""
@@ -33,29 +58,48 @@ class TrafficAnalyzer:
         """Return total traffic statistics."""
         if self.df is None or len(self.df) == 0:
             return {"total_bytes": 0, "total_packets": 0, "unique_users": 0}
-        
-        return {
+
+        cached = self._cache_result('total_traffic')
+        if cached is not None:
+            return cached
+
+        result = {
             "total_bytes": int(self.df['bytes'].sum()),
             "total_packets": len(self.df),
             "unique_users": self.df['user'].nunique(),
             "unique_ips": self.df['src_ip'].nunique() + self.df['dst_ip'].nunique()
         }
+        self._set_cache('total_traffic', result, ttl=300)
+        return result
     
     def get_user_traffic_ranking(self, top_n: int = 10) -> List[Dict[str, Any]]:
         """Return user traffic rankings."""
         if self.df is None or len(self.df) == 0:
             return []
-        
+
+        cache_key = f'user_traffic_ranking_{top_n}'
+        cached = self._cache_result(cache_key)
+        if cached is not None:
+            return cached
+
         user_traffic = self.df.groupby('user')['bytes'].sum().sort_values(ascending=False).head(top_n)
-        return [{"user": user, "bytes": int(bytes_val)} for user, bytes_val in user_traffic.items()]
+        result = [{"user": user, "bytes": int(bytes_val)} for user, bytes_val in user_traffic.items()]
+        self._set_cache(cache_key, result, ttl=300)
+        return result
     
     def get_app_category_traffic(self) -> List[Dict[str, Any]]:
         """Return traffic distribution by application category."""
         if self.df is None or len(self.df) == 0:
             return []
-        
+
+        cached = self._cache_result('app_category_traffic')
+        if cached is not None:
+            return cached
+
         app_traffic = self.df.groupby('app_category')['bytes'].sum().sort_values(ascending=False)
-        return [{"category": cat, "bytes": int(bytes_val)} for cat, bytes_val in app_traffic.items()]
+        result = [{"category": cat, "bytes": int(bytes_val)} for cat, bytes_val in app_traffic.items()]
+        self._set_cache('app_category_traffic', result, ttl=300)
+        return result
     
     def get_traffic_trend(self, unit: str = 'hour') -> List[Dict[str, Any]]:
         """Return traffic trend data over time."""
@@ -76,7 +120,11 @@ class TrafficAnalyzer:
         """Return hourly user activity analysis."""
         if self.df is None or len(self.df) == 0:
             return []
-        
+
+        cached = self._cache_result('active_hours')
+        if cached is not None:
+            return cached
+
         # 按小时统计用户活跃度
         hourly_stats = self.df.groupby('hour').agg({
             'user': 'nunique',
@@ -86,8 +134,10 @@ class TrafficAnalyzer:
         
         hourly_stats.columns = ['hour', 'active_users', 'total_bytes', 'packet_count']
         hourly_stats['hour'] = hourly_stats['hour'].astype(str).str.zfill(2) + ':00'
-        
-        return hourly_stats.to_dict('records')
+
+        result = hourly_stats.to_dict('records')
+        self._set_cache('active_hours', result, ttl=300)
+        return result
     
     def get_user_app_distribution(self, user_id: str) -> List[Dict[str, Any]]:
         """Return application category distribution for a user."""
