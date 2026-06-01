@@ -125,6 +125,20 @@ class UserProfileAnalyzer:
             "unencrypted_packets": unencrypted_count,
             "encryption_ratio": round(encrypted_count / total * 100, 2) if total > 0 else 0.0
         }
+
+    def get_connection_frequency(self, user_id: str) -> Dict[str, Any]:
+        """Return average connections per hour for a user."""
+        user_data = self.df[self.df['user'] == user_id]
+        if len(user_data) == 0:
+            return {"connections_per_hour": 0.0, "total_hours": 0.0, "total_connections": 0}
+        time_span = (user_data['timestamp'].max() - user_data['timestamp'].min()).total_seconds() / 3600
+        if time_span <= 0:
+            return {"connections_per_hour": 0.0, "total_hours": 0.0, "total_connections": len(user_data)}
+        return {
+            "connections_per_hour": round(len(user_data) / time_span, 2),
+            "total_hours": round(time_span, 2),
+            "total_connections": len(user_data)
+        }
     
     def get_port_stats(self, user_id: str) -> Dict[int, int]:
         """Return port behavior statistics for a user."""
