@@ -160,6 +160,12 @@ class TrafficAnalyzer:
             return 0
         return int(self.df['user'].nunique())
 
+    def get_top_ports(self, top_n: int = 10) -> List[Dict[str, Any]]:
+        if self.df is None or len(self.df) == 0:
+            return []
+        port_traffic = self.df.groupby('dst_port')['bytes'].sum().sort_values(ascending=False).head(top_n)
+        return [{"port": int(port), "bytes": int(bytes_val)} for port, bytes_val in port_traffic.items()]
+
     def get_concurrent_users(self) -> List[Dict[str, Any]]:
         """Return number of active users per hour bucket."""
         if self.df is None or len(self.df) == 0:
