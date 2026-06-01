@@ -70,6 +70,7 @@ class ReplayEngine:
         self._recent_events: Deque[Dict[str, Any]] = deque(maxlen=WINDOW_SIZE)
         self._traffic_buckets: Deque[Dict[str, Any]] = deque(maxlen=TRAFFIC_BUCKETS)
         self._port_seen: Dict[str, Deque] = defaultdict(lambda: deque(maxlen=64))
+        self._alert_history: Deque[Dict[str, Any]] = deque(maxlen=500)
 
     @classmethod
     def instance(cls) -> "ReplayEngine":
@@ -136,6 +137,11 @@ class ReplayEngine:
                 "traffic_buckets": list(self._traffic_buckets),
             }
 
+    def get_alert_history(self) -> List[Dict[str, Any]]:
+        """Return all alerts with timestamps from the alert history."""
+        with self._lock:
+            return list(self._alert_history)
+
     # ----- 订阅接口 ----------------------------------------------------
 
     def subscribe(self) -> queue.Queue:
@@ -177,6 +183,7 @@ class ReplayEngine:
         self._recent_events.clear()
         self._traffic_buckets.clear()
         self._port_seen.clear()
+        self._alert_history.clear()
 
     def _run(self) -> None:
         """Main replay loop that broadcasts events to subscribers."""
@@ -229,6 +236,7 @@ class ReplayEngine:
             alerts = self._check_alerts(event)
             for alert in alerts:
                 self._metrics.alerts_triggered += 1
+                self._alert_history.append(alert)
                 self._broadcast({"type": "alert", "payload": alert})
 
     def _update_buckets(self, event: Dict[str, Any]) -> None:
