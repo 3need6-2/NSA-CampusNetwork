@@ -1,4 +1,4 @@
-.PHONY: run dev install test lint format check clean docker-build docker-run backup clean-data help
+.PHONY: run dev install test lint format check coverage clean docker-build docker-run backup clean-data help
 
 help:
 	@echo "NSA-CampusNetwork - Makefile"
@@ -11,6 +11,7 @@ help:
 	@echo "  make lint         Lint Python code with flake8"
 	@echo "  make format       Format code with black and isort"
 	@echo "  make check        Run lint and typecheck"
+	@echo "  make coverage     Run tests with coverage report"
 	@echo "  make clean        Remove __pycache__ and .pyc files"
 	@echo "  make docker-build Build Docker image"
 	@echo "  make docker-run   Run Docker container (port 5001)"
@@ -35,6 +36,9 @@ lint:
 format:
 	black .
 	isort .
+
+coverage:
+	python -m pytest --cov=. tests/
 
 check: lint
 	@echo "--- Typecheck ---"
