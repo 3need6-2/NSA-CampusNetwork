@@ -7,6 +7,9 @@ import json
 from pathlib import Path
 from collections import defaultdict, Counter
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 from utils.constants import NORMALIZED_CATEGORIES, USER_PROFILE_SUSPICIOUS_PORTS
@@ -43,7 +46,7 @@ class UserProfileAnalyzer:
             self.df['date'] = self.df['timestamp'].dt.date
             return True
         except Exception as e:
-            print(f"数据加载失败: {e}")
+            logger.error(f"数据加载失败: {e}")
             return False
     
     def get_user_list(self) -> List[str]:
@@ -415,10 +418,10 @@ class UserProfileAnalyzer:
         try:
             with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(self.user_profiles, f, ensure_ascii=False, indent=2)
-            print(f"用户画像已保存至: {output_path}")
+            logger.info(f"用户画像已保存至: {output_path}")
             return True
         except Exception as e:
-            print(f"保存用户画像失败: {e}")
+            logger.error(f"保存用户画像失败: {e}")
             return False
     
     def load_profiles(self, input_path: Union[str, Path]) -> bool:
@@ -426,10 +429,10 @@ class UserProfileAnalyzer:
         try:
             with open(input_path, 'r', encoding='utf-8') as f:
                 self.user_profiles = json.load(f)
-            print(f"用户画像已从以下文件加载: {input_path}")
+            logger.info(f"用户画像已从以下文件加载: {input_path}")
             return True
         except Exception as e:
-            print(f"加载用户画像失败: {e}")
+            logger.error(f"加载用户画像失败: {e}")
             return False
 
 
