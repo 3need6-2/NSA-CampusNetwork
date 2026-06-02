@@ -1057,3 +1057,4 @@ if __name__ == '__main__':
         logger.warning('启动时未加载默认数据: %s', err)
 
     app.run(debug=True, host='0.0.0.0', port=5001)
+    # App is running
