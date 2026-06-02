@@ -223,29 +223,29 @@ def generate_active_hours_chart(analyzer):
     ))
     
     fig.update_layout(
-    title='活跃时段分析',
-    xaxis_title='时间',
-    yaxis=dict(
-        title=dict(
-            text='活跃用户数',
-            font=dict(color='#2ca02c')
+        title='活跃时段分析',
+        xaxis_title='时间',
+        yaxis=dict(
+            title=dict(
+                text='活跃用户数',
+                font=dict(color='#2ca02c')
+            ),
+            tickfont=dict(color='#2ca02c')
         ),
-        tickfont=dict(color='#2ca02c')
-    ),
-    yaxis2=dict(
-        title=dict(
-            text='流量 (MB)',
-            font=dict(color='#d62728')
+        yaxis2=dict(
+            title=dict(
+                text='流量 (MB)',
+                font=dict(color='#d62728')
+            ),
+            tickfont=dict(color='#d62728'),
+            anchor='x',
+            overlaying='y'
         ),
-        tickfont=dict(color='#d62728'),
-        anchor='x',
-        overlaying='y'
-    ),
-    hovermode='x unified',
-    template='plotly_white',
-    height=400,
-    legend=dict(x=0.01, y=0.99)
-)
+        hovermode='x unified',
+        template='plotly_white',
+        height=400,
+        legend=dict(x=0.01, y=0.99)
+    )
     
     return fig.to_html(div_id="active_hours_chart", include_plotlyjs=False)
 
