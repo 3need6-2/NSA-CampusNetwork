@@ -381,6 +381,7 @@
                     实时态势大屏
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8S2 12 2 12z"/></svg>
                 </a>
+                <a href="/live" class="btn">原始抓包 / 证据保存</a>
                 {% else %}
                 <span class="btn" style="cursor: default; opacity: 0.7;">下方上传 CSV 后解锁全部模块</span>
                 {% endif %}
@@ -388,6 +389,7 @@
             <div class="hero-cta">
                 <a href="/dashboard" class="btn">安全仪表板</a>
                 <a href="/realtime" class="btn violet">实时大屏</a>
+                <a href="/live" class="btn">原始抓包 / 证据保存</a>
             </div>
             <div class="badge-row">
                 <span class="badge cyan"><span class="dot"></span>规则引擎</span>
@@ -443,10 +445,10 @@
 
     <section class="upload-card">
         <h3>{% if total_traffic %}更新流量样本{% else %}导入流量样本{% endif %}</h3>
-        <div class="sub">支持 CSV 格式，单次最大 50 MB。上传后自动重新分析并刷新所有面板。</div>
+        <div class="sub">支持 CSV、PCAP、PCAPNG、CAP，单次最大 250 MB。上传后自动重新分析并刷新所有面板。</div>
         <form method="POST" action="/upload" enctype="multipart/form-data">
             <label class="dropzone" for="fileInput">
-                <input type="file" id="fileInput" name="file" accept=".csv" onchange="onFileSelected(this)">
+                <input type="file" id="fileInput" name="file" accept=".csv,.pcap,.pcapng,.cap" onchange="onFileSelected(this)">
                 <div class="icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -454,8 +456,8 @@
                         <line x1="12" y1="3" x2="12" y2="15"/>
                     </svg>
                 </div>
-                <div class="title">点击选择 CSV 文件 / 或拖放到此处</div>
-                <div class="hint">仅支持 CSV · 最大 50MB · 上传后自动覆盖当前样本</div>
+                <div class="title">点击选择 CSV / PCAP 文件，或拖放到此处</div>
+                <div class="hint">支持 CSV、PCAP、PCAPNG、CAP · 最大 250MB · 上传后自动覆盖当前样本</div>
             </label>
             <div id="file-info" style="display:none;margin-top:12px;padding:10px 14px;border:1px solid var(--border);border-radius:6px;background:rgba(2,6,23,0.5);font-size:13px;color:var(--muted);"></div>
         </form>

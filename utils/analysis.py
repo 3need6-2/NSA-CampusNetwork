@@ -216,6 +216,37 @@ class TrafficAnalyzer:
         protocol_bytes = self.df.groupby('protocol')['bytes'].sum().to_dict()
         return {str(k): int(v) for k, v in protocol_bytes.items()}
 
+    def get_activity_summary(self, top_n: int = 20) -> Dict[str, List[Dict[str, Any]]]:
+        """Summarize recognised hosts, local processes, and HTTP downloads."""
+        if self.df is None or len(self.df) == 0:
+            return {"top_hosts": [], "top_processes": [], "downloads": [], "activities": []}
+
+        def top_counter(column: str, label: str) -> List[Dict[str, Any]]:
+            if column not in self.df.columns:
+                return []
+            series = self.df[column].fillna("").astype(str).str.strip()
+            counts = series[series != ""].value_counts().head(top_n)
+            return [{label: key, "packets": int(value)} for key, value in counts.items()]
+
+        downloads: List[Dict[str, Any]] = []
+        if "download_name" in self.df.columns:
+            rows = self.df[self.df["download_name"].fillna("").astype(str).str.strip() != ""].tail(top_n)
+            for _, row in rows.iterrows():
+                downloads.append({
+                    "time": str(row.get("timestamp", "")),
+                    "name": str(row.get("download_name", "")),
+                    "source": str(row.get("hostname", "") or row.get("src_ip", "")),
+                    "content_type": str(row.get("content_type", "")),
+                    "bytes": int(row.get("bytes", 0) or 0),
+                })
+
+        return {
+            "top_hosts": top_counter("hostname", "host"),
+            "top_processes": top_counter("process_name", "process"),
+            "activities": top_counter("activity", "activity"),
+            "downloads": downloads[::-1],
+        }
+
     def get_top_talkers(self, top_n: int = 10) -> List[Dict[str, Any]]:
         """Return top source IPs by total bytes."""
         if self.df is None or len(self.df) == 0:

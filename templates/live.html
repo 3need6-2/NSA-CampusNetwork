@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校园网流量分析 - 实时采集</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f5f7fa; padding: 20px 0; color: #343a40; }
+        .navbar, .panel { background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+        .navbar-brand { color: #667eea !important; font-weight: bold; }
+        .panel { border-radius: 10px; padding: 22px; margin-bottom: 20px; }
+        .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #6c757d; margin-right: 6px; }
+        .status-dot.running { background: #198754; box-shadow: 0 0 0 4px rgba(25,135,84,.15); }
+        .metric { border-left: 4px solid #667eea; padding: 8px 12px; background: #f8f9fa; height: 100%; }
+        .metric-label { color: #6c757d; font-size: 12px; }
+        .metric-value { font-size: 22px; font-weight: 700; }
+        .packet-table { font-size: 13px; }
+        .packet-table td, .packet-table th { white-space: nowrap; }
+        .empty { color: #6c757d; padding: 36px; text-align: center; }
+        .activity-list { min-height: 108px; }
+        .activity-list .list-group-item { border-left: 0; border-right: 0; padding-left: 0; padding-right: 0; }
+        .activity-list .target { overflow-wrap: anywhere; }
+        .btn-back { background: #667eea; color: white; text-decoration: none; padding: 8px 20px; border-radius: 20px; font-size: 14px; }
+        .btn-back:hover { color: white; background: #764ba2; }
+        code { color: #495057; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">🌐 校园网流量分析</a>
+            <a href="/" class="btn-back">← 返回首页</a>
+        </div>
+    </nav>
+
+    <main class="container" style="max-width: 1200px;">
+        <section class="panel">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <div>
+                    <h2 class="h4 mb-1">📡 实时流量采集</h2>
+                    <div class="text-muted small">每个捕获到的原始数据包会写入 PCAP 证据文件；元数据单独保存用于实时分析。</div>
+                </div>
+                <div id="captureState" class="fw-bold"><span class="status-dot"></span>未开始</div>
+            </div>
+            <div id="alertBox"></div>
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label for="interfaceSelect" class="form-label">本机网卡</label>
+                    <select id="interfaceSelect" class="form-select"><option value="">加载网卡中…</option></select>
+                </div>
+                <div class="col-md-4">
+                    <label for="filterInput" class="form-label">过滤条件（可选）</label>
+                    <input id="filterInput" class="form-control" maxlength="120" placeholder="例如：tcp 或 udp port 53">
+                </div>
+                <div class="col-md-3">
+                    <label for="durationSelect" class="form-label">本次保存时长</label>
+                    <select id="durationSelect" class="form-select">
+                        <option value="0">手动停止</option>
+                        <option value="300">5 分钟</option>
+                        <option value="900">15 分钟</option>
+                        <option value="1800">30 分钟</option>
+                        <option value="3600">1 小时</option>
+                        <option value="7200">2 小时</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row g-3 align-items-end mt-1">
+                <div class="col-md-5">
+                    <label for="evidenceDirInput" class="form-label">证据保存目录</label>
+                    <input id="evidenceDirInput" class="form-control" value="data/captures" placeholder="默认：data/captures">
+                </div>
+                <div class="col-md-3">
+                    <label for="retentionSelect" class="form-label">自动删除</label>
+                    <select id="retentionSelect" class="form-select">
+                        <option value="1">1 天</option>
+                        <option value="3" selected>3 天（默认）</option>
+                        <option value="7">7 天</option>
+                        <option value="14">14 天</option>
+                        <option value="30">30 天</option>
+                        <option value="90">90 天</option>
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex gap-2">
+                    <button id="refreshButton" class="btn btn-outline-secondary" type="button">刷新网卡</button>
+                    <button id="startButton" class="btn btn-success flex-grow-1" type="button">开始采集</button>
+                    <button id="stopButton" class="btn btn-danger flex-grow-1" type="button" disabled>停止并分析</button>
+                </div>
+            </div>
+            <div class="small text-muted mt-3">Windows 实时采集依赖 <code>Npcap</code>；热点测试请选择对应 Wi-Fi 网卡。停止后会得到一个 PCAP 原包文件和一个元数据 CSV。</div>
+            <div id="evidenceFiles" class="small text-muted mt-2">正在读取证据文件…</div>
+        </section>
+
+        <section class="row g-3 mb-3">
+            <div class="col-6 col-lg-3"><div class="metric"><div class="metric-label">数据包</div><div class="metric-value" id="packetCount">0</div></div></div>
+            <div class="col-6 col-lg-3"><div class="metric"><div class="metric-label">流量</div><div class="metric-value" id="byteCount">0 B</div></div></div>
+            <div class="col-6 col-lg-3"><div class="metric"><div class="metric-label">IP 数</div><div class="metric-value" id="ipCount">0</div></div></div>
+            <div class="col-6 col-lg-3"><div class="metric"><div class="metric-label">已采集</div><div class="metric-value" id="duration">0 秒</div></div></div>
+        </section>
+
+        <section class="panel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="h5 mb-0">🌐 访问、下载与应用活动</h3>
+                <span id="activitySummary" class="small text-muted">等待流量数据</span>
+            </div>
+            <div class="row g-4">
+                <div class="col-lg-4">
+                    <div class="fw-bold small mb-2">常见域名 / 站点</div>
+                    <div id="hostList" class="list-group list-group-flush activity-list"><div class="empty">暂无可识别域名</div></div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="fw-bold small mb-2">本机使用网络的应用</div>
+                    <div id="processList" class="list-group list-group-flush activity-list"><div class="empty">暂无本机进程关联</div></div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="fw-bold small mb-2">HTTP 下载记录</div>
+                    <div id="downloadList" class="list-group list-group-flush activity-list"><div class="empty">暂无可识别下载</div></div>
+                </div>
+            </div>
+            <div class="table-responsive mt-3">
+                <table class="table table-sm table-hover packet-table mb-0">
+                    <thead><tr><th>时间</th><th>客户端</th><th>活动</th><th>页面 / 域名 / 文件</th><th>本机应用</th></tr></thead>
+                    <tbody id="activityRows"><tr><td colspan="5" class="empty">开始采集后显示可识别的访问、DNS、下载和应用活动。</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="h5 mb-0">最近数据包元数据</h3>
+                <span id="categorySummary" class="small text-muted">暂无分类</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover packet-table mb-0">
+                    <thead><tr><th>时间</th><th>源</th><th>目的</th><th>协议</th><th>类别</th><th>服务 / 站点</th><th class="text-end">大小</th></tr></thead>
+                    <tbody id="packetRows"><tr><td colspan="7" class="empty">开始采集后显示最近 20 条元数据记录。</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+        let polling = null;
+
+        function formatBytes(value) {
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let amount = Number(value || 0), unit = 0;
+            while (amount >= 1024 && unit < units.length - 1) { amount /= 1024; unit += 1; }
+            return `${amount.toFixed(unit ? 2 : 0)} ${units[unit]}`;
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
+        }
+
+        function renderList(id, items, titleKey, detailKey) {
+            const element = $(id);
+            element.innerHTML = items.length ? items.map(item => `
+                <div class="list-group-item d-flex justify-content-between gap-2">
+                    <span class="target">${escapeHtml(item[titleKey])}</span>
+                    <span class="text-muted text-nowrap">${escapeHtml(item[detailKey])}</span>
+                </div>`).join('') : '<div class="empty">暂无数据</div>';
+        }
+
+        function showAlert(message, type = 'danger') {
+            $('alertBox').innerHTML = `<div class="alert alert-${type} py-2 mb-3" role="alert">${message}</div>`;
+        }
+
+        function updateStatus(status) {
+            const running = Boolean(status.running);
+            $('captureState').innerHTML = `<span class="status-dot ${running ? 'running' : ''}"></span>${running ? '采集中' : '未开始'}`;
+            if (status.auto_stopped) {
+                $('captureState').innerHTML = '<span class="status-dot"></span>已到时自动停止';
+            }
+            $('packetCount').textContent = status.total_packets || 0;
+            $('byteCount').textContent = formatBytes(status.total_bytes);
+            $('ipCount').textContent = status.unique_ips || 0;
+            $('duration').textContent = `${status.duration_seconds || 0} 秒`;
+            $('startButton').disabled = running;
+            $('stopButton').disabled = !running && !(status.auto_stopped && status.total_packets);
+            $('refreshButton').disabled = running;
+            $('interfaceSelect').disabled = running;
+            $('filterInput').disabled = running;
+            $('durationSelect').disabled = running;
+            $('retentionSelect').disabled = running;
+            $('evidenceDirInput').disabled = running;
+            $('categorySummary').textContent = (status.categories || []).map(x => `${x.category} ${x.packets}`).join(' · ') || '暂无分类';
+            $('activitySummary').textContent = (status.activities || []).filter(x => x.activity !== '未识别').map(x => `${x.activity} ${x.packets}`).join(' · ') || '暂无可识别活动';
+            renderList('hostList', status.top_hosts || [], 'host', 'packets');
+            renderList('processList', status.top_processes || [], 'process', 'packets');
+            const downloads = status.downloads || [];
+            $('downloadList').innerHTML = downloads.length ? downloads.map(item => `
+                <div class="list-group-item">
+                    <div class="target">${escapeHtml(item.name)}</div>
+                    <small class="text-muted">${escapeHtml(item.source || 'HTTP 响应')} · ${formatBytes(item.bytes)}</small>
+                </div>`).join('') : '<div class="empty">暂无可识别下载</div>';
+            const records = status.recent_packets || [];
+            const activities = records.filter(packet => packet.activity);
+            $('activityRows').innerHTML = activities.length ? activities.map(packet => `
+                <tr><td>${escapeHtml(packet.timestamp)}</td><td>${escapeHtml(packet.user)}</td><td>${escapeHtml(packet.activity)}</td><td class="target">${escapeHtml(packet.activity_target || packet.hostname || packet.download_name || '-')}</td><td>${escapeHtml(packet.process_name || '-')}</td></tr>`).join('')
+                : '<tr><td colspan="5" class="empty">开始采集后显示可识别的访问、DNS、下载和应用活动。</td></tr>';
+            $('packetRows').innerHTML = records.length ? records.map(packet => `
+                <tr><td>${escapeHtml(packet.timestamp)}</td><td>${escapeHtml(packet.src_ip)}:${escapeHtml(packet.src_port || '-')}</td><td>${escapeHtml(packet.dst_ip)}:${escapeHtml(packet.dst_port || '-')}</td><td>${escapeHtml(packet.protocol)}</td><td>${escapeHtml(packet.app_category)}</td><td class="target">${escapeHtml(packet.hostname || packet.activity_target || '-')}</td><td class="text-end">${formatBytes(packet.bytes)}</td></tr>`).join('')
+                : '<tr><td colspan="7" class="empty">开始采集后显示最近 20 条元数据记录。</td></tr>';
+            if ((status.errors || []).length) showAlert(`采集提示：${status.errors.at(-1)}`, 'warning');
+        }
+
+        async function requestJson(url, options) {
+            const response = await fetch(url, options);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || '请求失败');
+            return data;
+        }
+
+        async function loadInterfaces() {
+            try {
+                const data = await requestJson('/api/live/interfaces');
+                const select = $('interfaceSelect');
+                select.innerHTML = '<option value="">默认抓包网卡（由系统选择）</option>';
+                data.interfaces.forEach(name => {
+                    const option = document.createElement('option');
+                    option.value = name; option.textContent = name; select.appendChild(option);
+                });
+            } catch (error) { showAlert(`网卡列表读取失败：${error.message}`); }
+        }
+
+        async function refreshStatus() {
+            try {
+                const status = await requestJson('/api/live/status');
+                updateStatus(status);
+                if (status.auto_stopped && polling) {
+                    window.clearInterval(polling); polling = null;
+                    showAlert('已按设定时长自动停止；点击“停止并分析”加载本次证据。', 'success');
+                }
+            }
+            catch (error) { showAlert(`状态读取失败：${error.message}`); }
+        }
+
+        async function refreshEvidenceFiles() {
+            try {
+                const data = await requestJson('/api/evidence/config');
+                $('evidenceDirInput').value = data.evidence_dir;
+                $('retentionSelect').value = String(data.retention_days || 3);
+                const files = data.files || [];
+                $('evidenceFiles').innerHTML = files.length
+                    ? `已有证据：${files.slice(0, 5).map(file => `${escapeHtml(file.name)} (${formatBytes(file.size)})`).join(' · ')}`
+                    : '暂无历史证据文件';
+            } catch (error) { showAlert(`证据目录读取失败：${error.message}`); }
+        }
+
+        $('refreshButton').addEventListener('click', loadInterfaces);
+        $('startButton').addEventListener('click', async () => {
+            $('alertBox').innerHTML = '';
+            try {
+                const data = await requestJson('/api/live/start', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({
+                    interface: $('interfaceSelect').value,
+                    filter: $('filterInput').value,
+                    duration_seconds: Number($('durationSelect').value),
+                    retention_days: Number($('retentionSelect').value),
+                    evidence_dir: $('evidenceDirInput').value
+                }) });
+                updateStatus(data.status);
+                polling = window.setInterval(refreshStatus, 1000);
+            } catch (error) { showAlert(`启动失败：${error.message}`); }
+        });
+        $('stopButton').addEventListener('click', async () => {
+            try {
+                const data = await requestJson('/api/live/stop', { method: 'POST' });
+                window.clearInterval(polling); polling = null; updateStatus(data.status);
+                if (data.dashboard_url) window.location.assign(data.dashboard_url);
+                else showAlert('没有采集到可分析的 IP 数据包，请检查网卡选择后重试。', 'warning');
+            } catch (error) { showAlert(`停止失败：${error.message}`); }
+        });
+        loadInterfaces();
+        refreshStatus();
+        refreshEvidenceFiles();
+    </script>
+</body>
+</html>

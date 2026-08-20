@@ -607,6 +607,7 @@
                 <button class="btn" id="fullscreen-btn" type="button" style="min-height:36px;padding:0 12px;font-size:13px;" title="全屏显示">⛶ 全屏</button>
             <a class="nav-link" href="/api/export/json" download>导出 JSON</a>
                 <a class="nav-link" href="/realtime">实时大屏</a>
+                <a class="nav-link" href="/live">原始抓包</a>
                 <a class="nav-link" href="/">返回首页</a>
             </div>
         </header>
@@ -713,6 +714,28 @@
                 <div class="metric-note">包含所有协议的流量包</div>
             </div>
         </section>
+
+        <section class="section-title">
+            <h2>访问、下载与本机应用</h2>
+            <span>基于 DNS、TLS SNI、HTTP 元数据和本机连接表</span>
+            <button class="toggle-btn" data-target="activity-section" type="button">折叠</button>
+        </section>
+        <div class="collapsible-body" id="activity-section">
+            <section class="grid-3">
+                <div class="panel">
+                    <h3>常见域名 / 站点</h3>
+                    <div id="activity-hosts" class="mini-list"><div class="loading">正在加载...</div></div>
+                </div>
+                <div class="panel">
+                    <h3>本机网络应用</h3>
+                    <div id="activity-processes" class="mini-list"><div class="loading">正在加载...</div></div>
+                </div>
+                <div class="panel">
+                    <h3>HTTP 下载记录</h3>
+                    <div id="activity-downloads" class="mini-list"><div class="loading">正在加载...</div></div>
+                </div>
+            </section>
+        </div>
 
         <section class="section-title">
             <h2>流量趋势与应用分布</h2>
@@ -949,8 +972,39 @@
 
             renderBlockList(security.blocked_entities || []);
             renderActiveHours(data.active_hours || []);
+            renderActivitySummary(data.activity_summary || {});
             renderMLAnomaly(data.ml_anomaly || {});
             renderCharts(data);
+        }
+
+        function renderActivitySummary(summary) {
+            const renderItems = (id, items, key, empty) => {
+                const element = document.getElementById(id);
+                if (!element) return;
+                if (!items.length) {
+                    element.innerHTML = `<div class="mini-item"><span>${empty}</span><strong>--</strong></div>`;
+                    return;
+                }
+                element.innerHTML = items.slice(0, 8).map(item => `
+                    <div class="mini-item">
+                        <span style="word-break:break-all;">${item[key] || '--'}</span>
+                        <strong>${item.packets ?? formatBytes(item.bytes || 0)}</strong>
+                    </div>
+                `).join('');
+            };
+            renderItems('activity-hosts', summary.top_hosts || [], 'host', '未识别到可见域名');
+            renderItems('activity-processes', summary.top_processes || [], 'process', '未关联到本机进程');
+            const downloads = summary.downloads || [];
+            const downloadElement = document.getElementById('activity-downloads');
+            if (downloadElement) {
+                downloadElement.innerHTML = downloads.length
+                    ? downloads.slice(0, 8).map(item => `
+                        <div class="mini-item">
+                            <span style="word-break:break-all;">${item.name || '--'}</span>
+                            <strong>${formatBytes(item.bytes || 0)}</strong>
+                        </div>`).join('')
+                    : '<div class="mini-item"><span>未识别到明文 HTTP 下载</span><strong>--</strong></div>';
+            }
         }
 
         function renderMLAnomaly(report) {

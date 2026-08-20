@@ -32,3 +32,8 @@ logs/
 reports/
 scripts/__pycache__/
 *.html
+
+# Runtime traffic data and packet-capture evidence
+data/uploads/
+data/live_traffic.csv
+data/captures/

@@ -1,6 +1,7 @@
 """Flask web application for campus network traffic analysis and monitoring."""
 
 from typing import Any, Dict, List, Optional, Tuple, Union
+from uuid import uuid4
 
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, Response, stream_with_context, make_response, after_this_request
 from flask_limiter import Limiter
@@ -22,14 +23,21 @@ from utils.ml_anomaly import detect_anomalies
 from utils.realtime import ReplayEngine, stream_events
 from utils.metrics import registry, requests_total, bytes_processed, alerts_total, request_duration
 from utils.cache import cache
+from utils.ingestion import (
+    LiveCaptureService,
+    SUPPORTED_EXTENSIONS,
+    TrafficImportError,
+    load_traffic_file,
+    save_canonical_csv,
+)
 
 app = Flask(__name__)
 
 limiter = Limiter(app=app, key_func=get_remote_address)
 
 UPLOAD_FOLDER = Path(__file__).parent / 'data'
-ALLOWED_EXTENSIONS = {'csv'}
-MAX_CONTENT_LENGTH = 50 * 1024 * 1024
+ALLOWED_EXTENSIONS = SUPPORTED_EXTENSIONS
+MAX_CONTENT_LENGTH = 250 * 1024 * 1024
 REQUEST_TIMEOUT = int(os.getenv('REQUEST_TIMEOUT', '300'))
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -38,6 +46,10 @@ app.config['REQUEST_TIMEOUT'] = REQUEST_TIMEOUT
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'nsa-campus-network-dev-key')
 
 UPLOAD_FOLDER.mkdir(exist_ok=True)
+(UPLOAD_FOLDER / 'uploads').mkdir(exist_ok=True)
+LIVE_CSV = UPLOAD_FOLDER / 'live_traffic.csv'
+EVIDENCE_DIR = UPLOAD_FOLDER / 'captures'
+live_capture = LiveCaptureService(LIVE_CSV, EVIDENCE_DIR)
 
 
 @app.after_request
@@ -164,7 +176,7 @@ def allowed_file(filename: str) -> bool:
 
 def load_analyzer(csv_file: Optional[Union[str, Path]] = None) -> Tuple[bool, Optional[str]]:
     """Load the analyzer, generate charts, profiles, and security reports."""
-    csv_path = csv_file if csv_file is not None else UPLOAD_FOLDER / 'traffic.csv'
+    csv_path = Path(csv_file) if csv_file is not None else UPLOAD_FOLDER / 'traffic.csv'
 
     if not csv_path.exists():
         return False, f'未找到 CSV 文件: {csv_path.name}'
@@ -203,6 +215,14 @@ def load_analyzer(csv_file: Optional[Union[str, Path]] = None) -> Tuple[bool, Op
     except Exception as exc:
         logger.exception('分析器加载失败')
         return False, f'分析器加载失败: {exc}'
+
+
+def load_latest_saved_analyzer() -> Tuple[bool, Optional[str]]:
+    """Restore the newest import or local live-capture metadata after restart."""
+    candidates = [path for path in (UPLOAD_FOLDER / 'traffic.csv', LIVE_CSV) if path.exists()]
+    if not candidates:
+        return False, '未找到导入或实时采集数据。'
+    return load_analyzer(max(candidates, key=lambda path: path.stat().st_mtime))
 
 
 def _build_user_profiles(csv_path: str):
@@ -246,7 +266,8 @@ def dashboard() -> str:
                           active_hours=active_hours,
                           ai_security=snap['ai_security_report'],
                           ml_anomaly=snap['ml_anomaly_report'],
-                          attack_map=attack_map)
+                          attack_map=attack_map,
+                          activity_summary=analyzer.get_activity_summary())
 
 
 def _attack_map_stats(analyzer: Optional[TrafficAnalyzer], security_report: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -282,29 +303,23 @@ def upload() -> str:
     file = request.files['file']
 
     if file.filename == '':
-        flash('文件名为空，请选择有效的 CSV 文件。', 'danger')
+        flash('文件名为空，请选择有效文件。', 'danger')
         return redirect(url_for('index'))
 
     if not allowed_file(file.filename):
-        flash('只支持 CSV 格式文件。', 'danger')
+        flash('支持 CSV、PCAP、PCAPNG 和 CAP 文件。', 'danger')
         return redirect(url_for('index'))
 
     try:
-        filename = secure_filename('traffic.csv')
-        filepath = UPLOAD_FOLDER / filename
+        filename = secure_filename(file.filename) or f'upload.{file.filename.rsplit(".", 1)[-1].lower()}'
+        filepath = UPLOAD_FOLDER / 'uploads' / f'{uuid4().hex}_{filename}'
         file.save(str(filepath))
-
-        df_check = pd.read_csv(filepath)
-        required_columns = {'timestamp', 'bytes', 'user', 'src_ip', 'dst_ip', 'dst_port', 'app_category', 'protocol'}
-        missing = required_columns - set(df_check.columns)
-        if missing:
-            flash(f'CSV 文件缺少必需列: {", ".join(sorted(missing))}', 'danger')
-            filepath.unlink(missing_ok=True)
-            return redirect(url_for('index'))
-
-        ok, err = run_with_timeout(load_analyzer, app.config['REQUEST_TIMEOUT'], filepath)
+        dataframe, metadata = load_traffic_file(filepath)
+        canonical_path = UPLOAD_FOLDER / 'traffic.csv'
+        save_canonical_csv(dataframe, canonical_path)
+        ok, err = run_with_timeout(load_analyzer, app.config['REQUEST_TIMEOUT'], canonical_path)
         if ok:
-            flash('上传并分析完成，已切换到最新数据。', 'success')
+            flash(f'已导入 {metadata["records"]} 条流量记录并完成分析。', 'success')
             return redirect(url_for('dashboard'))
 
         flash(err or '上传失败，请检查 CSV 内容。', 'danger')
@@ -445,8 +460,19 @@ def api_stats() -> Response:
         'total_traffic': analyzer.get_total_traffic(),
         'user_ranking': analyzer.get_user_traffic_ranking(),
         'app_category': analyzer.get_app_category_traffic(),
-        'active_hours': analyzer.get_active_hours()
+        'active_hours': analyzer.get_active_hours(),
+        'activity_summary': analyzer.get_activity_summary(),
     })
+
+
+@app.route('/api/activities')
+def api_activities() -> Response:
+    """Return recognised hosts, local processes, and HTTP downloads."""
+    snap = state.snapshot()
+    analyzer = snap['analyzer']
+    if not analyzer:
+        return jsonify({"top_hosts": [], "top_processes": [], "downloads": [], "activities": []})
+    return jsonify(analyzer.get_activity_summary())
 
 
 @app.route('/api/stats/detailed')
@@ -507,6 +533,7 @@ def api_dashboard_data() -> Response:
         'attack_map': _attack_map_stats(analyzer, security_report),
         'ai_security': security_report,
         'ml_anomaly': snap['ml_anomaly_report'] or detect_anomalies(analyzer.df),
+        'activity_summary': analyzer.get_activity_summary(),
     }
     cache.set('api_dashboard_data', data, ttl=60)
     return jsonify(data)
@@ -646,6 +673,107 @@ def api_ml_anomaly_refresh() -> Response:
     report = detect_anomalies(analyzer.df)
     state.update_ml_report(report)
     return jsonify(report)
+
+
+@app.route('/live')
+def live_capture_view() -> str:
+    """Render local network-interface capture controls."""
+    return render_template('live.html')
+
+
+@app.route('/api/live/interfaces')
+def api_live_interfaces() -> Response:
+    try:
+        return jsonify({"interfaces": live_capture.available_interfaces()})
+    except Exception as exc:
+        return jsonify({"interfaces": [], "error": str(exc)}), 503
+
+
+@app.route('/api/live/status')
+def api_live_status() -> Response:
+    return jsonify(live_capture.status())
+
+
+@app.route('/api/evidence/config')
+def api_evidence_config() -> Response:
+    return jsonify({
+        "evidence_dir": str(live_capture.evidence_dir),
+        "retention_days": live_capture.retention_days,
+        "files": live_capture.list_evidence(),
+    })
+
+
+@app.route('/api/evidence/cleanup', methods=['POST'])
+def api_evidence_cleanup() -> Response:
+    payload = request.get_json(silent=True) or request.form
+    try:
+        retention_days = int(payload.get("retention_days", live_capture.retention_days))
+        if not 1 <= retention_days <= 365:
+            raise ValueError("自动删除时间必须是 1 到 365 天。")
+        deleted = live_capture.cleanup_expired(retention_days)
+        return jsonify({
+            "ok": True,
+            "deleted": deleted,
+            "retention_days": retention_days,
+            "files": live_capture.list_evidence(),
+        })
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@app.route('/api/live/start', methods=['POST'])
+def api_live_start() -> Response:
+    payload = request.get_json(silent=True) or request.form
+    interface = str(payload.get("interface", "")).strip()
+    bpf_filter = str(payload.get("filter", "")).strip()
+    evidence_dir_value = str(payload.get("evidence_dir", "")).strip()
+    try:
+        duration_seconds = int(payload.get("duration_seconds", 0))
+        retention_days = int(payload.get("retention_days", 3))
+    except (TypeError, ValueError):
+        return jsonify({"error": "保存时长和自动删除天数必须是整数。"}), 400
+    if len(bpf_filter) > 120:
+        return jsonify({"error": "抓包过滤条件不能超过 120 个字符。"}), 400
+    try:
+        interfaces = live_capture.available_interfaces()
+        if interface and interface not in interfaces:
+            return jsonify({"error": "所选网卡已不可用，请刷新网卡列表。"}), 400
+        evidence_dir = None
+        if evidence_dir_value:
+            evidence_dir = Path(evidence_dir_value).expanduser()
+            if not evidence_dir.is_absolute():
+                evidence_dir = (Path(app.root_path) / evidence_dir).resolve()
+        live_capture.start(
+            interface,
+            bpf_filter,
+            duration_seconds=duration_seconds,
+            retention_days=retention_days,
+            evidence_dir=evidence_dir,
+        )
+        return jsonify({"ok": True, "status": live_capture.status()})
+    except (TrafficImportError, RuntimeError) as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        logger.exception("实时抓包启动失败")
+        return jsonify({"error": f"实时抓包启动失败：{exc}"}), 500
+
+
+@app.route('/api/live/stop', methods=['POST'])
+def api_live_stop() -> Response:
+    try:
+        records = live_capture.stop()
+        dashboard_ready = False
+        if records:
+            dashboard_ready, _ = load_analyzer(LIVE_CSV)
+        return jsonify({
+            "ok": True,
+            "records": records,
+            "dashboard_url": url_for("dashboard") if dashboard_ready else None,
+            "status": live_capture.status(),
+        })
+    except Exception as exc:
+        logger.exception("实时抓包停止失败")
+        return jsonify({"error": f"实时抓包停止失败：{exc}"}), 500
 
 
 @app.route('/realtime')
@@ -1052,7 +1180,7 @@ def request_entity_too_large(error: Any) -> str:
 
 
 if __name__ == '__main__':
-    ok, err = load_analyzer()
+    ok, err = load_latest_saved_analyzer()
     if not ok:
         logger.warning('启动时未加载默认数据: %s', err)
 
